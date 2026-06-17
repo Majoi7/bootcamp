@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && node -e \"require('fs').renameSync('dist','output')\"",
+    "build": "vite build && rm -rf output && cp -r dist output",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
