@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import heroImg from "@/assets/bootcamp-hero.jpeg";
 import { useEffect, useState, useRef } from "react";
-// Entré
+// Entré de lapp
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
