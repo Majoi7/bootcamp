@@ -12,14 +12,14 @@ export default defineConfig({
       routeDir: "src/routes", // ← ajoute ceci
     },
   },
-  nitro: {
-    preset: "vercel",
-    output: {
-      dir: ".vercel/output",
-      serverDir: ".vercel/output/functions/__server.func",
-      publicDir: ".vercel/output/static",
-    },
+ nitro: {
+  preset: "vercel",
+  output: {
+    dir: "output",                      // ⇐ dossier racine visible par Vercel
+    serverDir: "output/functions/__server.func",
+    publicDir: "output/static",
   },
+},
   plugins: [
     TanStackRouterVite({ autoCodeSplitting: true }),
     tsconfigPaths(),

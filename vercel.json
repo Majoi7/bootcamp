@@ -1,5 +1,5 @@
 {
-  "outputDirectory": ".vercel/output/static",
+  "outputDirectory": "output/static",
   "buildCommand": "npm run build",
   "framework": null
 }
