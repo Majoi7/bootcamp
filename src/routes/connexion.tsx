@@ -10,6 +10,28 @@ export const Route = createFileRoute("/connexion")({
   component: ConnexionPage,
 });
 
+// ── Liste des pays d'Afrique francophone ─────────────────────────────────
+const paysAfriqueFrancophone = [
+  { code: "BJ", nom: "Bénin", indicatif: "+229", drapeau: "🇧🇯" },
+  { code: "BF", nom: "Burkina Faso", indicatif: "+226", drapeau: "🇧🇫" },
+  { code: "CM", nom: "Cameroun", indicatif: "+237", drapeau: "🇨🇲" },
+  { code: "CF", nom: "Centrafrique", indicatif: "+236", drapeau: "🇨🇫" },
+  { code: "KM", nom: "Comores", indicatif: "+269", drapeau: "🇰🇲" },
+  { code: "CG", nom: "Congo", indicatif: "+242", drapeau: "🇨🇬" },
+  { code: "CD", nom: "RD Congo", indicatif: "+243", drapeau: "🇨🇩" },
+  { code: "CI", nom: "Côte d'Ivoire", indicatif: "+225", drapeau: "🇨🇮" },
+  { code: "GA", nom: "Gabon", indicatif: "+241", drapeau: "🇬🇦" },
+  { code: "GN", nom: "Guinée", indicatif: "+224", drapeau: "🇬🇳" },
+  { code: "GQ", nom: "Guinée Équatoriale", indicatif: "+240", drapeau: "🇬🇶" },
+  { code: "MG", nom: "Madagascar", indicatif: "+261", drapeau: "🇲🇬" },
+  { code: "ML", nom: "Mali", indicatif: "+223", drapeau: "🇲🇱" },
+  { code: "NE", nom: "Niger", indicatif: "+227", drapeau: "🇳🇪" },
+  { code: "RW", nom: "Rwanda", indicatif: "+250", drapeau: "🇷🇼" },
+  { code: "SN", nom: "Sénégal", indicatif: "+221", drapeau: "🇸🇳" },
+  { code: "TD", nom: "Tchad", indicatif: "+235", drapeau: "🇹🇩" },
+  { code: "TG", nom: "Togo", indicatif: "+228", drapeau: "🇹🇬" },
+];
+
 const schema = z.object({
   whatsapp: z.string().min(8, "Numéro trop court"),
   password: z.string().min(1, "Mot de passe requis"),
@@ -25,15 +47,16 @@ async function hashPassword(password: string): Promise<string> {
   return arr.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function formatWhatsApp(raw: string): string {
+function formatWhatsApp(raw: string, indicatif: string): string {
   const cleaned = raw.replace(/[\s\-]/g, "").replace(/^0+/, "");
-  if (cleaned.startsWith("+229")) return cleaned;
-  return "+229" + cleaned.replace(/^\+/, "");
+  if (cleaned.startsWith(indicatif)) return cleaned;
+  return indicatif + cleaned.replace(/^\+/, "");
 }
 
 function ConnexionPage() {
   const navigate = useNavigate();
   const [serverError, setServerError] = useState("");
+  const [selectedIndicatif, setSelectedIndicatif] = useState(paysAfriqueFrancophone[0]); // Bénin par défaut
 
   const {
     register,
@@ -46,7 +69,7 @@ function ConnexionPage() {
   async function onSubmit(data: FormData) {
     setServerError("");
 
-    const phone = formatWhatsApp(data.whatsapp);
+    const phone = formatWhatsApp(data.whatsapp, selectedIndicatif.indicatif);
     const passwordHash = await hashPassword(data.password);
 
     const { data: participant, error } = await supabase
@@ -96,9 +119,30 @@ window.location.href = "/dashboard";
               Numéro WhatsApp
             </label>
             <div className="flex items-center rounded-xl border border-border overflow-hidden focus-within:ring-2 focus-within:ring-primary/25 focus-within:border-primary transition-all">
-              <div className="px-3 py-3 border-r border-border bg-muted/40 text-sm font-semibold select-none">
-                🇧🇯 +229
+              {/* Sélecteur d'indicatif */}
+              <div className="relative">
+                <select
+                  value={selectedIndicatif.code}
+                  onChange={(e) => {
+                    const pays = paysAfriqueFrancophone.find(p => p.code === e.target.value);
+                    if (pays) setSelectedIndicatif(pays);
+                  }}
+                  className="appearance-none bg-muted/40 px-3 py-3 pr-8 border-r border-border text-sm font-semibold text-foreground cursor-pointer hover:bg-muted/60 transition-colors outline-none"
+                >
+                  {paysAfriqueFrancophone.map((pays) => (
+                    <option key={pays.code} value={pays.code}>
+                      {pays.drapeau} {pays.indicatif}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
+              
+              {/* Champ de saisie du numéro */}
               <input
                 id="whatsapp"
                 type="tel"

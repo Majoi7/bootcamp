@@ -60,14 +60,38 @@ const schemaPassword = z
     path: ["confirmPassword"],
   });
 
+  // ── Liste des pays d'Afrique francophone ─────────────────────────────────
+const paysAfriqueFrancophone = [
+  { code: "BJ", nom: "Bénin", indicatif: "+229", drapeau: "🇧🇯" },
+  { code: "BF", nom: "Burkina Faso", indicatif: "+226", drapeau: "🇧🇫" },
+  { code: "CM", nom: "Cameroun", indicatif: "+237", drapeau: "🇨🇲" },
+  { code: "CF", nom: "Centrafrique", indicatif: "+236", drapeau: "🇨🇫" },
+  { code: "KM", nom: "Comores", indicatif: "+269", drapeau: "🇰🇲" },
+  { code: "CG", nom: "Congo", indicatif: "+242", drapeau: "🇨🇬" },
+  { code: "CD", nom: "RD Congo", indicatif: "+243", drapeau: "🇨🇩" },
+  { code: "CI", nom: "Côte d'Ivoire", indicatif: "+225", drapeau: "🇨🇮" },
+  { code: "GA", nom: "Gabon", indicatif: "+241", drapeau: "🇬🇦" },
+  { code: "GN", nom: "Guinée", indicatif: "+224", drapeau: "🇬🇳" },
+  { code: "GQ", nom: "Guinée Équatoriale", indicatif: "+240", drapeau: "🇬🇶" },
+  { code: "MG", nom: "Madagascar", indicatif: "+261", drapeau: "🇲🇬" },
+  { code: "ML", nom: "Mali", indicatif: "+223", drapeau: "🇲🇱" },
+  { code: "NE", nom: "Niger", indicatif: "+227", drapeau: "🇳🇪" },
+  { code: "RW", nom: "Rwanda", indicatif: "+250", drapeau: "🇷🇼" },
+  { code: "SN", nom: "Sénégal", indicatif: "+221", drapeau: "🇸🇳" },
+  { code: "TD", nom: "Tchad", indicatif: "+235", drapeau: "🇹🇩" },
+  { code: "TG", nom: "Togo", indicatif: "+228", drapeau: "🇹🇬" },
+];
+
 type FormDataInfos = z.infer<typeof schemaInfos>;
 type FormDataPassword = z.infer<typeof schemaPassword>;
 
+
 // ── Formate le numéro avant insertion ───────────────────────────────────────
-function formatWhatsApp(raw: string): string {
+// Remplacer la fonction formatWhatsApp existante par celle-ci :
+function formatWhatsApp(raw: string, indicatif: string): string {
   const cleaned = raw.replace(/[\s\-]/g, "").replace(/^0+/, "");
-  if (cleaned.startsWith("+229")) return cleaned;
-  return "+229" + cleaned.replace(/^\+/, "");
+  if (cleaned.startsWith(indicatif)) return cleaned;
+  return indicatif + cleaned.replace(/^\+/, "");
 }
 
 // ── Styles partagés ─────────────────────────────────────────────────────────
@@ -139,6 +163,8 @@ function InscriptionPage() {
   const [pulseButton, setPulseButton] = useState(false);
   const [savedData, setSavedData] = useState<FormDataInfos | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(null);
+  // Dans la fonction InscriptionPage, ajouter après les autres states :
+const [selectedIndicatif, setSelectedIndicatif] = useState(paysAfriqueFrancophone[0]); // Bénin par défaut
 
   // ── Formulaire étape 1 : infos ─────────────────────────────────────────
   const {
@@ -192,8 +218,8 @@ function InscriptionPage() {
       .insert({
         nom: data.nom.trim(),
         prenoms: data.prenoms.trim(),
-        whatsapp: formatWhatsApp(data.whatsapp),
-        niveau_etudes: data.niveau_etudes,
+// Dans onSubmitInfos, remplacer la ligne whatsapp par :
+whatsapp: formatWhatsApp(data.whatsapp, selectedIndicatif.indicatif),        niveau_etudes: data.niveau_etudes,
         paye: false,
         montant_paye: 0,
       })
@@ -538,41 +564,62 @@ async function hashPassword(password: string): Promise<string> {
             </div>
 
             {/* WhatsApp */}
-            <div>
-              <label htmlFor="whatsapp" className="block text-sm font-semibold mb-2">
-                Numéro WhatsApp
-              </label>
-              <div
-                className={[
-                  "flex items-center rounded-xl border overflow-hidden transition-all duration-200",
-                  "focus-within:ring-2",
-                  errorsInfos.whatsapp
-                    ? "border-red-400 bg-red-50/30 focus-within:ring-red-300/30"
-                    : "border-border hover:border-primary/50 focus-within:border-primary focus-within:ring-primary/25",
-                ].join(" ")}
-              >
-                <div className="flex items-center gap-1.5 px-3 py-3 border-r border-inherit bg-muted/40 shrink-0 select-none pointer-events-none">
-                  <span className="text-base leading-none">🇧🇯</span>
-                  <span className="text-sm font-semibold text-foreground">+229</span>
-                </div>
-                <input
-                  id="whatsapp"
-                  type="tel"
-                  placeholder="01 46 24 45 49"
-                  {...registerInfos("whatsapp")}
-                  className="flex-1 bg-transparent text-sm px-3 py-3 outline-none placeholder:text-muted-foreground/50"
-                />
-              </div>
-              {errorsInfos.whatsapp ? (
-                <p className="mt-1.5 text-xs text-red-500 animate-fade-in">
-                  {errorsInfos.whatsapp.message}
-                </p>
-              ) : (
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Format : 8 chiffres minimum
-                </p>
-              )}
-            </div>
+           {/* WhatsApp - Remplacer tout le bloc WhatsApp existant par celui-ci */}
+<div>
+  <label htmlFor="whatsapp" className="block text-sm font-semibold mb-2">
+    Numéro WhatsApp
+  </label>
+  <div
+    className={[
+      "flex items-center rounded-xl border overflow-hidden transition-all duration-200",
+      "focus-within:ring-2",
+      errorsInfos.whatsapp
+        ? "border-red-400 bg-red-50/30 focus-within:ring-red-300/30"
+        : "border-border hover:border-primary/50 focus-within:border-primary focus-within:ring-primary/25",
+    ].join(" ")}
+  >
+    {/* Sélecteur d'indicatif */}
+    <div className="relative">
+      <select
+        value={selectedIndicatif.code}
+        onChange={(e) => {
+          const pays = paysAfriqueFrancophone.find(p => p.code === e.target.value);
+          if (pays) setSelectedIndicatif(pays);
+        }}
+        className="appearance-none bg-muted/40 px-3 py-3 pr-8 border-r border-inherit text-sm font-semibold text-foreground cursor-pointer hover:bg-muted/60 transition-colors outline-none"
+      >
+        {paysAfriqueFrancophone.map((pays) => (
+          <option key={pays.code} value={pays.code}>
+            {pays.drapeau} {pays.indicatif}
+          </option>
+        ))}
+      </select>
+      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+    </div>
+    
+    {/* Champ de saisie du numéro */}
+    <input
+      id="whatsapp"
+      type="tel"
+      placeholder="01 46 24 45 49"
+      {...registerInfos("whatsapp")}
+      className="flex-1 bg-transparent text-sm px-3 py-3 outline-none placeholder:text-muted-foreground/50"
+    />
+  </div>
+  {errorsInfos.whatsapp ? (
+    <p className="mt-1.5 text-xs text-red-500 animate-fade-in">
+      {errorsInfos.whatsapp.message}
+    </p>
+  ) : (
+    <p className="mt-1.5 text-xs text-muted-foreground">
+      Format : 8 chiffres minimum • {selectedIndicatif.drapeau} {selectedIndicatif.nom}
+    </p>
+  )}
+</div>
 
             {/* Niveau d'études */}
             <div>
