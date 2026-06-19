@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
 const tracks = [
   { icon: "🌐", title: "Développement Web", items: ["HTML5", "CSS3", "JavaScript", "Responsive Design"], color: "ocean" },
   { icon: "⚙️", title: "Développement Backend", items: ["Python", "Laravel", "API REST", "Postman"], color: "coral" },
-  { icon: "🗄️", title: "Bases de Données", items: ["MySQL", "Modélisation", "Requêtes SQL"], color: "sun" },
+  { icon: "🗄️", title: "Bases de Données", items: ["Supabase", "MYSQL", "PostgreSQL", "Requêtes SQL"], color: "sun" },
   { icon: "⚛️", title: "Frontend Moderne", items: ["React", "Consommation d'API", "Interfaces interactives"], color: "ocean" },
   { icon: "🔀", title: "Git & GitHub", items: ["Gestion de versions", "Collaboration", "Branches", "README pro"], color: "coral" },
   { icon: "🎨", title: "Design Graphique", items: ["Figma", "Canva", "Maquettage", "UI Design"], color: "sun" },
@@ -243,13 +243,14 @@ function Index() {
 
           <div className="relative z-10 mx-auto max-w-7xl px-6 pt-8 pb-20 grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <Pill>1er Édition 2026 · Organisé par Amphix</Pill>
+              <Pill>1er Édition 2026</Pill>
               <h1 className="mt-6 font-display text-6xl md:text-7xl lg:text-8xl font-bold leading-[0.95] text-balance">
                 <span className="text-primary">Boot</span><span className="text-secondary">Camp</span>
-                <span className="block text-foreground text-4xl md:text-5xl mt-3">Amphix 2026</span>
+                <span className="block text-foreground text-4xl md:text-5xl mt-3">le 1er août 2026</span>
               </h1>
               <p className="mt-6 text-xl text-muted-foreground max-w-xl">
-                « Apprendre, Construire, Innover. » Transformez vos idées en projets concrets grâce à une immersion intensive dans les métiers du numérique.
+                « Apprendre, Construire, Innover. »
+Transformez vos idées en projets concrets grâce à une immersion intensive dans les métiers du numérique et découvrez le Vibe Coding, une nouvelle manière de créer rapidement des solutions innovantes en collaborant avec l’intelligence artificielle.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="/inscription" className="rounded-full bg-gradient-ocean text-primary-foreground px-7 py-3.5 font-semibold shadow-pop hover:scale-105 transition active:scale-95">
@@ -498,7 +499,6 @@ function Index() {
                     📞 Contact WhatsApp
                   </a>
                 </div>
-                <p className="mt-8 text-sm opacity-80">🌐 Organisé par Amphix 🚀</p>
               </div>
             </div>
           </Reveal>
@@ -506,7 +506,7 @@ function Index() {
 
         <footer className="border-t border-border py-10">
           <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2"><span>🚀</span><span className="font-display font-bold text-foreground">Amphix</span> · Bootcamp 2026</div>
+            <div className="flex items-center gap-2"><span></span><span className="font-display font-bold text-foreground">Amphix</span> · Bootcamp 2026</div>
             <div>« Apprendre, Construire, Innover »</div>
           </div>
         </footer>
