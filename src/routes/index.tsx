@@ -246,12 +246,18 @@ function Index() {
               <Pill>1er Édition 2026</Pill>
               <h1 className="mt-6 font-display text-6xl md:text-7xl lg:text-8xl font-bold leading-[0.95] text-balance">
                 <span className="text-primary">Boot</span><span className="text-secondary">Camp</span>
-                <span className="block text-foreground text-4xl md:text-5xl mt-3">le 1er août 2026</span>
-              </h1>
-              <p className="mt-6 text-xl text-muted-foreground max-w-xl">
-                « Apprendre, Construire, Innover. »
-Transformez vos idées en projets concrets grâce à une immersion intensive dans les métiers du numérique et découvrez le Vibe Coding, une nouvelle manière de créer rapidement des solutions innovantes en collaborant avec l’intelligence artificielle.
-              </p>
+<span className="block text-foreground text-4xl md:text-5xl mt-3">
+  <span className="typing-text">
+    le 1er août 2026
+  </span>
+</span>              </h1>
+            <p className="mt-6 text-xl text-muted-foreground max-w-xl">
+  « Apprendre, Construire, Innover. » Donnez vie à vos idées grâce au{" "}
+  <strong className="font-bold text-ocean animate-pulse">
+    Vibe Coding
+  </strong>
+  , une nouvelle manière de créer et d'innover avec l'intelligence artificielle.
+</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="/inscription" className="rounded-full bg-gradient-ocean text-primary-foreground px-7 py-3.5 font-semibold shadow-pop hover:scale-105 transition active:scale-95">
   Réserver ma place 
@@ -393,7 +399,7 @@ Transformez vos idées en projets concrets grâce à une immersion intensive dan
             <div className="text-center max-w-2xl mx-auto">
               <span className="inline-block text-5xl animate-bounce">🎉</span>
               <h2 className="mt-4 font-display text-5xl font-bold">Amphix Summer Fest</h2>
-              <p className="mt-4 text-lg opacity-95">Le jour de clôture : une journée exceptionnelle pour célébrer les réalisations des participants.</p>
+              <p className="mt-4 text-lg opacity-95">Une journée exceptionnelle vous attend à la plage de la Place de l’Amazone pour célébrer les réalisations et les succès des participants dans une ambiance conviviale et festive.</p>
             </div>
             <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
@@ -495,9 +501,29 @@ Transformez vos idées en projets concrets grâce à une immersion intensive dan
                     <div className="text-xs uppercase tracking-wider opacity-80">Inscription</div>
                     <div className="font-display text-3xl font-bold">5 000 FCFA</div>
                   </div>
-                  <a href="https://wa.me/+22946244549" className="rounded-full bg-secondary text-secondary-foreground px-8 py-4 font-bold text-lg hover:scale-105 transition shadow-pop active:scale-95">
+                 <a
+  href="/inscription"
+  className="
+    relative inline-flex items-center justify-center
+    rounded-full
+    bg-secondary
+    text-primary-foreground
+    px-8 py-4
+    font-bold
+    shadow-pop
+    transition-all duration-300
+    hover:scale-110
+    hover:shadow-2xl
+    active:scale-95
+    animate-pulse
+  "
+>
+   Réserver ma place
+</a>
+                  <a href="https://wa.me/+22946244549" className="rounded-full bg-primary text-primary-foreground px-8 py-4 font-bold text-lg hover:scale-105 transition shadow-pop active:scale-95">
                     📞 Contact WhatsApp
                   </a>
+           
                 </div>
               </div>
             </div>
