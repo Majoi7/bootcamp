@@ -10,7 +10,7 @@ export const Route = createFileRoute("/inscription")({
     meta: [
       { title: "Inscription — Bootcamp Amphix 2026" },
       {
-        name: "description",
+        name: "description ",
         content:
           "Inscrivez-vous au Bootcamp Amphix 2026. 10 000 FCFA. Web, IA, Design, Hackathon.",
       },
