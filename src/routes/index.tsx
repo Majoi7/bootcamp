@@ -6,9 +6,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Bootcamp Amphix 2026 — Apprendre, Construire, Innover" },
-      { name: "description", content: "4 semaines de formation intensive aux métiers du numérique. Web, IA, Design, Hackathon. Inscription : 5 000 FCFA." },
+      { name: "description", content: "4 semaines de formation intensive aux métiers du numérique. Web, IA, Design, Hackathon. Inscription : 10 000 FCFA." },
       { property: "og:title", content: "Bootcamp Amphix 2026" },
-      { property: "og:description", content: "4 semaines pour transformer vos idées en projets concrets. Inscription : 5 000 FCFA." },
+      { property: "og:description", content: "4 semaines pour transformer vos idées en projets concrets. Inscription : 10 000 FCFA." },
       { property: "og:image", content: heroImg },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -288,7 +288,7 @@ function Index() {
               { label: "Durée", value: "4 semaines", icon: "📅", grad: "bg-gradient-ocean" },
               { label: "Mode", value: "90% en ligne", icon: "💻", grad: "bg-gradient-sun" },
               { label: "Clôture", value: "Hackathon + Cérémonie", icon: "🎉", grad: "bg-gradient-coral" },
-              { label: "Inscription", value: "5 000 FCFA", icon: "🎟️", grad: "bg-gradient-ocean" },
+              { label: "Inscription", value: "10 000 FCFA", icon: "🎟️", grad: "bg-gradient-ocean" },
             ].map((c, i) => (
               <Reveal key={c.label} delay={i * 100}>
                 <div className="relative rounded-2xl bg-card p-6 shadow-soft border border-border overflow-hidden hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
@@ -436,9 +436,9 @@ function Index() {
             </div>
             <div className="grid md:grid-cols-3 gap-5 mb-5">
               {[
-                { medal: "🥇", title: "15 000 FCFA", g: "bg-gradient-sun" },
-                { medal: "🥈", title: "10 000 FCFA", g: "bg-gradient-ocean" },
-                { medal: "🥉", title: "7 500 FCFA", g: "bg-gradient-coral" },
+                { medal: "🥇", title: "20 000 FCFA", g: "bg-gradient-sun" },
+                { medal: "🥈", title: "15 000 FCFA", g: "bg-gradient-ocean" },
+                { medal: "🥉", title: "10 000 FCFA", g: "bg-gradient-coral" },
               ].map((p, i) => (
                 <Reveal key={p.title} delay={i * 150}>
                   <div className={`rounded-3xl ${p.g} p-8 text-center text-primary-foreground shadow-pop hover:scale-105 transition-transform duration-300`} style={{ transform: i === 0 ? "scale(1.04)" : undefined }}>
@@ -499,7 +499,7 @@ function Index() {
                 <div className="mt-8 inline-flex flex-col sm:flex-row items-center gap-4">
                   <div className="rounded-2xl bg-white/15 backdrop-blur px-6 py-4 border border-white/20 hover:bg-white/25 transition-colors">
                     <div className="text-xs uppercase tracking-wider opacity-80">Inscription</div>
-                    <div className="font-display text-3xl font-bold">5 000 FCFA</div>
+                    <div className="font-display text-3xl font-bold">10 000 FCFA</div>
                   </div>
                  <a
   href="/inscription"
@@ -520,9 +520,12 @@ function Index() {
 >
    Réserver ma place
 </a>
-                  <a href="https://wa.me/+22946244549" className="rounded-full bg-primary text-primary-foreground px-8 py-4 font-bold text-lg hover:scale-105 transition shadow-pop active:scale-95">
-                    📞 Contact WhatsApp
-                  </a>
+                 <a
+  href="https://wa.me/22946244549"
+  className="rounded-full bg-green-500 text-white px-8 py-4 font-bold text-lgyy hover:bg-green-600 hover:scale-105 transition shadow-pop active:scale-95"
+>
+  📞 Contact WhatsApp
+</a>
            
                 </div>
               </div>

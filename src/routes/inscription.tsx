@@ -12,7 +12,7 @@ export const Route = createFileRoute("/inscription")({
       {
         name: "description",
         content:
-          "Inscrivez-vous au Bootcamp Amphix 2026. 5 000 FCFA. Web, IA, Design, Hackathon.",
+          "Inscrivez-vous au Bootcamp Amphix 2026. 10 000 FCFA. Web, IA, Design, Hackathon.",
       },
     ],
     links: [
@@ -667,7 +667,7 @@ async function hashPassword(password: string): Promise<string> {
                 Frais d'inscription
               </p>
               <p className="font-display text-3xl font-bold text-primary">
-                5 000 FCFA
+                10 000 FCFA
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 À payer après inscription via WhatsApp
@@ -722,7 +722,7 @@ async function hashPassword(password: string): Promise<string> {
           {[
             { icon: "📅", label: "Durée", value: "4 semaines" },
             { icon: "💻", label: "Mode", value: "90% en ligne" },
-            { icon: "🎟️", label: "Inscription", value: "5 000 FCFA" },
+            { icon: "🎟️", label: "Inscription", value: "10 000 FCFA" },
           ].map((c) => (
             <div
               key={c.label}
