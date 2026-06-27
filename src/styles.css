@@ -1,188 +1,179 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-
 @source "../src";
-
 @custom-variant dark (&:is(.dark *));
-
 @theme inline {
-  --font-display: "Fredoka", system-ui, sans-serif;
-  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-sand: var(--sand);
-  --color-ocean: var(--ocean);
-  --color-sun: var(--sun);
-  --color-coral: var(--coral);
-  --color-border: var(--border);
-  --color-ring: var(--ring);
+    --font-display: "Fredoka", system-ui, sans-serif;
+    --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --radius-2xl: calc(var(--radius) + 8px);
+    --radius-3xl: calc(var(--radius) + 12px);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-sand: var(--sand);
+    --color-ocean: var(--ocean);
+    --color-sun: var(--sun);
+    --color-coral: var(--coral);
+    --color-border: var(--border);
+    --color-ring: var(--ring);
 }
 
 :root {
-  --radius: 1rem;
-  --background: oklch(0.985 0.025 95);
-  --foreground: oklch(0.22 0.05 250);
-
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.05 250);
-
-  --primary: oklch(0.62 0.18 240);
-  --primary-foreground: oklch(0.99 0 0);
-
-  --secondary: oklch(0.78 0.16 70);
-  --secondary-foreground: oklch(0.22 0.05 250);
-
-  --accent: oklch(0.68 0.2 25);
-  --accent-foreground: oklch(0.99 0 0);
-
-  --muted: oklch(0.96 0.02 90);
-  --muted-foreground: oklch(0.45 0.03 250);
-
-  --sand: oklch(0.95 0.06 85);
-  --ocean: oklch(0.62 0.18 240);
-  --sun: oklch(0.82 0.17 80);
-  --coral: oklch(0.68 0.2 25);
-
-  --border: oklch(0.88 0.04 80);
-  --ring: oklch(0.62 0.18 240);
-
-  --gradient-hero: linear-gradient(135deg, oklch(0.95 0.06 85) 0%, oklch(0.92 0.09 75) 50%, oklch(0.88 0.12 60) 100%);
-  --gradient-sun: linear-gradient(135deg, oklch(0.82 0.17 80), oklch(0.7 0.2 45));
-  --gradient-ocean: linear-gradient(135deg, oklch(0.62 0.18 240), oklch(0.5 0.18 260));
-  --gradient-coral: linear-gradient(135deg, oklch(0.75 0.18 35), oklch(0.65 0.22 15));
-
-  --shadow-soft: 0 10px 40px -10px oklch(0.5 0.1 250 / 0.15);
-  --shadow-pop: 0 20px 50px -15px oklch(0.62 0.18 240 / 0.35);
+    --radius: 1rem;
+    --background: oklch(0.985 0.025 95);
+    --foreground: oklch(0.22 0.05 250);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.22 0.05 250);
+    --primary: oklch(0.62 0.18 240);
+    --primary-foreground: oklch(0.99 0 0);
+    --secondary: oklch(0.78 0.16 70);
+    --secondary-foreground: oklch(0.22 0.05 250);
+    --accent: oklch(0.68 0.2 25);
+    --accent-foreground: oklch(0.99 0 0);
+    --muted: oklch(0.96 0.02 90);
+    --muted-foreground: oklch(0.45 0.03 250);
+    --sand: oklch(0.95 0.06 85);
+    --ocean: oklch(0.62 0.18 240);
+    --sun: oklch(0.82 0.17 80);
+    --coral: oklch(0.68 0.2 25);
+    --border: oklch(0.88 0.04 80);
+    --ring: oklch(0.62 0.18 240);
+    --gradient-hero: linear-gradient(135deg, oklch(0.95 0.06 85) 0%, oklch(0.92 0.09 75) 50%, oklch(0.88 0.12 60) 100%);
+    --gradient-sun: linear-gradient(135deg, oklch(0.82 0.17 80), oklch(0.7 0.2 45));
+    --gradient-ocean: linear-gradient(135deg, oklch(0.62 0.18 240), oklch(0.5 0.18 260));
+    --gradient-coral: linear-gradient(135deg, oklch(0.75 0.18 35), oklch(0.65 0.22 15));
+    --shadow-soft: 0 10px 40px -10px oklch(0.5 0.1 250 / 0.15);
+    --shadow-pop: 0 20px 50px -15px oklch(0.62 0.18 240 / 0.35);
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
-  body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-sans);
-  }
-  h1, h2, h3, h4 {
-    font-family: var(--font-display);
-    letter-spacing: -0.02em;
-  }
+    * {
+        border-color: var(--color-border);
+    }
+    body {
+        background: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-sans);
+    }
+    h1,
+    h2,
+    h3,
+    h4 {
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
+    }
 }
 
+
 /* Animations (une seule définition propre) */
+
 @keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes shrink {
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
 }
 
 @keyframes spin {
-  from {
-    transform: rotateY(0deg);
-  }
-  to {
-    transform: rotateY(360deg);
-  }
+    from {
+        transform: rotateY(0deg);
+    }
+    to {
+        transform: rotateY(360deg);
+    }
 }
 
 @keyframes float-slow {
-  0%, 100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-12px) rotate(2deg);
-  }
+    0%,
+    100% {
+        transform: translateY(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-12px) rotate(2deg);
+    }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.3s ease-out;
+    animation: fade-in 0.3s ease-out;
 }
 
 .safe-area-pb {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .animate-float {
-  animation: float-slow 6s ease-in-out infinite;
+    animation: float-slow 6s ease-in-out infinite;
 }
 
 @layer utilities {
-  .bg-gradient-hero {
-    background: var(--gradient-hero);
-  }
-  .bg-gradient-sun {
-    background: var(--gradient-sun);
-  }
-  .bg-gradient-ocean {
-    background: var(--gradient-ocean);
-  }
-  .bg-gradient-coral {
-    background: var(--gradient-coral);
-  }
-  .shadow-soft {
-    box-shadow: var(--shadow-soft);
-  }
-  .shadow-pop {
-    box-shadow: var(--shadow-pop);
-  }
-  .text-balance {
-    text-wrap: balance;
-  }
+    .bg-gradient-hero {
+        background: var(--gradient-hero);
+    }
+    .bg-gradient-sun {
+        background: var(--gradient-sun);
+    }
+    .bg-gradient-ocean {
+        background: var(--gradient-ocean);
+    }
+    .bg-gradient-coral {
+        background: var(--gradient-coral);
+    }
+    .shadow-soft {
+        box-shadow: var(--shadow-soft);
+    }
+    .shadow-pop {
+        box-shadow: var(--shadow-pop);
+    }
+    .text-balance {
+        text-wrap: balance;
+    }
 }
+
 @keyframes typing {
-  from {
-    width: 0;
-  }
-  to {
-    width: 11ch;
-  }
+    from {
+        width: 0;
+    }
+    to {
+        width: 13ch;
+    }
 }
 
 .animate-typing {
-  display: inline-block;
-  width: 11ch;
-  animation: typing 7s steps(11) infinite alternate;
+    display: inline-block;
+    width: 13ch;
+    animation: typing 7s steps(13) infinite alternate;
 }
 
 .typing-text {
-  display: inline-block;
-  overflow: hidden;
-  white-space: nowrap;
-  border-right: 3px solid currentColor;
-  animation:
-    typing 7s steps(21, end) infinite alternate,
-    blinkCursor .8s step-end infinite;
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 3px solid currentColor;
+    animation: typing 7s steps(21, end) infinite alternate, blinkCursor .8s step-end infinite;
 }
