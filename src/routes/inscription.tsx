@@ -89,9 +89,17 @@ type FormDataPassword = z.infer<typeof schemaPassword>;
 // ── Formate le numéro avant insertion ───────────────────────────────────────
 // Remplacer la fonction formatWhatsApp existante par celle-ci :
 function formatWhatsApp(raw: string, indicatif: string): string {
-  const cleaned = raw.replace(/[\s\-]/g, "").replace(/^0+/, "");
+  // 1. Nettoie les espaces et tirets
+  const cleaned = raw.replace(/[\s\-]/g, "");
+  
+  // 2. Si le numéro commence déjà par l'indicatif complet, on le garde tel quel
   if (cleaned.startsWith(indicatif)) return cleaned;
-  return indicatif + cleaned.replace(/^\+/, "");
+  
+  // 3. Si le numéro commence par +, on enlève juste le +
+  const withoutPlus = cleaned.replace(/^\+/, "");
+  
+  // 4. On ajoute l'indicatif devant (le 0 initial est conservé !)
+  return indicatif + withoutPlus;
 }
 
 // ── Styles partagés ─────────────────────────────────────────────────────────
@@ -208,18 +216,21 @@ const [selectedIndicatif, setSelectedIndicatif] = useState(paysAfriqueFrancophon
   }
 
   // ── Étape 1 : soumission des infos ───────────────────────────────────────
- async function onSubmitInfos(data: FormDataInfos) {
+async function onSubmitInfos(data: FormDataInfos) {
   setIsSubmitting(true);
   setServerError("");
 
   try {
+    const whatsappFormate = formatWhatsApp(data.whatsapp, selectedIndicatif.indicatif);
+
+    // 1. Insérer dans Supabase
     const { data: inserted, error } = await supabase
       .from("participants")
       .insert({
         nom: data.nom.trim(),
         prenoms: data.prenoms.trim(),
-// Dans onSubmitInfos, remplacer la ligne whatsapp par :
-whatsapp: formatWhatsApp(data.whatsapp, selectedIndicatif.indicatif),        niveau_etudes: data.niveau_etudes,
+        whatsapp: whatsappFormate,
+        niveau_etudes: data.niveau_etudes,
         paye: false,
         montant_paye: 0,
       })
@@ -227,21 +238,43 @@ whatsapp: formatWhatsApp(data.whatsapp, selectedIndicatif.indicatif),        niv
       .single();
 
     if (error) {
-      if (
-        error.message.includes("duplicate") ||
-        error.message.includes("unique")
-      ) {
+      if (error.message.includes("duplicate") || error.message.includes("unique")) {
         setServerError("Ce numéro WhatsApp est déjà inscrit.");
       } else {
         setServerError(error.message);
       }
+      setIsSubmitting(false); // ← Important !
       return;
+    }
+
+    // 2. 🚀 Envoyer l'email de notification
+    try {
+      console.log("📧 Envoi email en cours...");
+      
+      const { data: emailData, error: fnError } = await supabase.functions.invoke("send-email", {
+        body: {
+          nom: data.nom,
+          prenoms: data.prenoms,
+          whatsapp: whatsappFormate,
+          niveau_etudes: data.niveau_etudes,
+          pays: selectedIndicatif.nom,
+        },
+      });
+      
+      console.log("📧 Réponse email:", emailData, fnError);
+      
+      if (fnError) {
+        console.error("❌ Erreur fonction email:", fnError);
+      }
+    } catch (emailErr) {
+      console.error("❌ Catch email:", emailErr);
     }
 
     setSavedData(data);
     setParticipantId(inserted.id);
     setStep("password");
-  } catch {
+  } catch (err) {
+    console.error("Erreur inscription:", err);
     setServerError("Une erreur est survenue. Veuillez réessayer.");
   } finally {
     setIsSubmitting(false);
