@@ -5,6 +5,8 @@ import { useEffect, useState, useRef } from "react";
 import campfireImg from "@/assets/logos/campfire.png";
 import certificatImg from "@/assets/logos/certificat.png";
 import { logoMap, infoIconMap } from "@/assets/logos";
+import { SparklesText } from "@/components/ui/sparkles-text";
+import Spline from "@splinetool/react-spline";
 // Entré de lapp ts
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -317,9 +319,14 @@ function Index() {
             <Reveal>
               <Pill> Semaines 1 & 3</Pill>
             </Reveal>
-            <Reveal delay={100}>
-              <h2 className="mt-5 font-display text-5xl font-bold">Formation intensive</h2>
-            </Reveal>
+           <Reveal delay={100}>
+  <SparklesText
+    text="Formation intensive"
+    className="mt-5 font-display text-5xl font-bold"
+    sparklesCount={10}
+    colors={{ first: "#38bdf8", second: "#fb923c" }}
+  />
+</Reveal>
             <Reveal delay={200}>
               <p className="mt-4 text-lg text-muted-foreground">Trois semaines de pratique animées par des expérimentés du secteur, à travers 10 modules essentiels.</p>
             </Reveal>
@@ -367,40 +374,73 @@ function Index() {
           </div>
         </section>
 
-        {/* HACKATHON */}
-        <section className="mx-auto max-w-7xl px-6 py-20">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <Reveal><Pill> Semaine 4</Pill></Reveal>
-            <Reveal delay={100}><h2 className="mt-5 font-display text-5xl font-bold">Mini-Hackathon</h2></Reveal>
-            <Reveal delay={200}><p className="mt-4 text-lg text-muted-foreground">En équipes, concevez une solution innovante répondant à un problème réel.</p></Reveal>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Reveal delay={0}>
-              <div className="rounded-3xl bg-card p-8 border border-border shadow-soft hover:shadow-pop transition-shadow duration-300">
-                <h3 className="font-display text-2xl font-bold flex items-center gap-2">🎯 Thématiques</h3>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {hackathonThemes.map((t) => (
-                    <span key={t} className="rounded-full bg-muted px-4 py-2 text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors cursor-default">{t}</span>
-                  ))}
-                </div>
-              </div>
-            </Reveal>
-            <Reveal delay={150}>
-              <div className="rounded-3xl bg-card p-8 border border-border shadow-soft hover:shadow-pop transition-shadow duration-300">
-                <h3 className="font-display text-2xl font-bold flex items-center gap-2">⚖️ Critères d'évaluation</h3>
-                <ul className="mt-5 grid grid-cols-2 gap-3">
-                  {criteria.map((c, i) => (
-                    <li key={c} className="flex items-center gap-3 text-sm">
-                      <span className="w-7 h-7 rounded-full bg-gradient-sun text-foreground font-bold flex items-center justify-center text-xs">{i+1}</span>{c}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Reveal>
-          </div>
-        </section>
+    {/* HACKATHON */}
+<section className="bg-white mx-auto max-w-7xl px-6 py-20 rounded-2xl">
+  {/* Titre et description */}
+  <div className="text-center max-w-2xl mx-auto mb-14">
+    <Reveal>
+      <Pill> Semaine 4</Pill>
+    </Reveal>
+    <Reveal delay={100}>
+      <h2 className="mt-5 font-display text-5xl font-bold">Mini-Hackathon</h2>
+    </Reveal>
+    <Reveal delay={200}>
+      <p className="mt-4 text-lg text-muted-foreground">
+        En équipes, concevez une solution innovante répondant à un problème réel.
+      </p>
+    </Reveal>
+  </div>
 
-       
+  {/* Robot 3D centré et sans watermark */}
+  <Reveal>
+    <div className="flex items-center justify-center w-full h-80 md:h-96 mb-10">
+      <Spline
+        scene="https://prod.spline.design/eNdnHh8iifDjRlcB/scene.splinecode"
+        noAttribution={true}
+        className="w-full h-full max-w-lg"
+      />
+    </div>
+  </Reveal>
+
+  {/* Blocs en dessous */}
+  <div className="grid md:grid-cols-2 gap-6">
+    <Reveal delay={0}>
+      <div className="rounded-3xl bg-card p-8 border border-border shadow-soft hover:shadow-pop transition-shadow duration-300">
+        <h3 className="font-display text-2xl font-bold flex items-center gap-2">
+          🎯 Thématiques
+        </h3>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {hackathonThemes.map((t) => (
+            <span
+              key={t}
+              className="rounded-full bg-muted px-4 py-2 text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors cursor-default"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+    </Reveal>
+
+    <Reveal delay={150}>
+      <div className="rounded-3xl bg-card p-8 border border-border shadow-soft hover:shadow-pop transition-shadow duration-300">
+        <h3 className="font-display text-2xl font-bold flex items-center gap-2">
+          ⚖️ Critères d'évaluation
+        </h3>
+        <ul className="mt-5 grid grid-cols-2 gap-3">
+          {criteria.map((c, i) => (
+            <li key={c} className="flex items-center gap-3 text-sm">
+              <span className="w-7 h-7 rounded-full bg-gradient-sun text-foreground font-bold flex items-center justify-center text-xs">
+                {i + 1}
+              </span>
+              {c}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Reveal>
+  </div>
+</section>
 
         {/* RÉCOMPENSES — Parallax section */}
         <section className="relative mx-auto max-w-6xl px-6 py-20 overflow-hidden">
@@ -460,54 +500,67 @@ function Index() {
           </div>
         </section>
 
-        {/* CTA INSCRIPTION */}
-        <section id="inscription" className="mx-auto max-w-5xl px-6 py-24">
-          <Reveal>
-            <div className="relative rounded-[2.5rem] bg-gradient-ocean text-primary-foreground p-10 md:p-16 text-center overflow-hidden shadow-pop">
-              <div className="absolute -top-10 -left-10 w-48 h-48 bg-gradient-sun rounded-full opacity-30 blur-2xl animate-pulse" />
-              <div className="absolute -bottom-10 -right-10 w-56 h-56 bg-gradient-coral rounded-full opacity-30 blur-2xl animate-pulse" style={{ animationDelay: "1.5s" }} />
-              <div className="relative">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/20 backdrop-blur px-4 py-2 text-sm font-semibold animate-pulse">
-                  🎯 Places limitées
-                </div>
-                <h2 className="mt-6 font-display text-5xl md:text-6xl font-bold leading-tight">Réservez votre place dès maintenant</h2>
-                <p className="mt-5 text-xl opacity-95">4 semaines · Innovation · Collaboration · Création</p>
-                <div className="mt-8 inline-flex flex-col sm:flex-row items-center gap-4">
-                  <div className="rounded-2xl bg-white/15 backdrop-blur px-6 py-4 border border-white/20 hover:bg-white/25 transition-colors">
-                    <div className="text-xs uppercase tracking-wider opacity-80">Inscription</div>
-                    <div className="font-display text-3xl font-bold">10 000 FCFA</div>
-                  </div>
-                 <a
-  href="/inscription"
-  className="
-    relative inline-flex items-center justify-center
-    rounded-full
-    bg-secondary
-    text-primary-foreground
-    px-8 py-4
-    font-bold
-    shadow-pop
-    transition-all duration-300
-    hover:scale-110
-    hover:shadow-2xl
-    active:scale-95
-    animate-pulse
-  "
->
-   Réserver ma place
-</a>
-                 <a
-  href="https://wa.me/22946244549"
-  className="rounded-full bg-green-500 text-white px-8 py-4 font-bold text-lgyy hover:bg-green-600 hover:scale-105 transition shadow-pop active:scale-95"
->
-  📞 Contact WhatsApp
-</a>
-           
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </section>
+      {/* CTA INSCRIPTION — Style exact de l'image */}
+<section id="inscription" className="mx-auto max-w-5xl px-6 py-24">
+  <Reveal>
+    <div className="relative rounded-[2.5rem] bg-white text-foreground p-10 md:p-16 text-center overflow-hidden shadow-soft border border-border">
+      
+      {/* Formes décoratives aux coins (comme sur l'image) */}
+      <div className="absolute top-0 left-0 w-40 h-40 rounded-full bg-emerald-400/80 blur-xl opacity-60" 
+           style={{ transform: 'translate(-30%, -30%)' }} />
+      <div className="absolute top-0 left-0 w-32 h-32 rounded-full bg-emerald-300/60 blur-lg opacity-50" 
+           style={{ transform: 'translate(-20%, -10%)' }} />
+      
+      <div className="absolute top-0 left-[15%] w-28 h-28 rounded-full bg-orange-400/80 blur-xl opacity-60" 
+           style={{ transform: 'translateY(-40%)' }} />
+      <div className="absolute top-0 left-[25%] w-20 h-20 rounded-full bg-yellow-400/70 blur-lg opacity-50" 
+           style={{ transform: 'translateY(-30%)' }} />
+      
+      <div className="absolute top-0 right-[20%] w-32 h-32 rounded-full bg-gray-100 blur-lg opacity-80" 
+           style={{ transform: 'translateY(-40%)' }} />
+      <div className="absolute top-0 right-[5%] w-28 h-28 rounded-full bg-gray-50 blur-lg opacity-70" 
+           style={{ transform: 'translateY(-35%)' }} />
+      
+      <div className="absolute top-0 right-0 w-36 h-36 rounded-full bg-purple-500/80 blur-xl opacity-60" 
+           style={{ transform: 'translate(30%, -30%)' }} />
+      <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-purple-400/60 blur-lg opacity-50" 
+           style={{ transform: 'translate(20%, -10%)' }} />
+      
+      <div className="absolute bottom-0 right-[10%] w-32 h-32 rounded-full bg-red-500/70 blur-xl opacity-50" 
+           style={{ transform: 'translateY(40%)' }} />
+      <div className="absolute bottom-0 right-[5%] w-24 h-24 rounded-full bg-red-400/50 blur-lg opacity-40" 
+           style={{ transform: 'translateY(30%)' }} />
+
+      <div className="relative z-10">
+        {/* Sous-titre en petit caps */}
+        <p className="text-xs font-medium tracking-[0.2em] uppercase text-muted-foreground mb-6">
+          es tu prêt?
+        </p>
+        
+        {/* Titre principal */}
+        <h2 className="font-sans text-5xl md:text-6xl font-medium leading-tight tracking-tight text-foreground">
+          Rejoignez le <br />bootcamp 
+        </h2>
+
+        {/* Boutons */}
+        <div className="mt-10 flex items-center justify-center gap-3">
+          <a
+            href="/inscription"
+            className="rounded-full bg-black text-white px-6 py-2.5 text-sm font-medium hover:bg-black/90 transition-colors"
+          >
+          Réserver ma place
+          </a>
+          <a
+            href="#programme"
+            className="rounded-full bg-white text-foreground px-6 py-2.5 text-sm font-medium border border-border hover:bg-muted transition-colors"
+          >
+            Programme
+          </a>
+        </div>
+      </div>
+    </div>
+  </Reveal>
+</section>
 
         <div className="mb-16">
   <InfiniteTextMarquee
