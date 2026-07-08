@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import heroImg from "@/assets/bootcamp-hero.jpeg";
+import { InfiniteTextMarquee } from "@/components/ui/InfiniteTextMarquee";
 import { useEffect, useState, useRef } from "react";
+import campfireImg from "@/assets/logos/campfire.png";
+import certificatImg from "@/assets/logos/certificat.png";
+import { logoMap, infoIconMap } from "@/assets/logos";
 // Entré de lapp ts
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -20,20 +24,18 @@ export const Route = createFileRoute("/")({
   }),
   component: Index,
 });
-
 const tracks = [
-  { icon: "🌐", title: "Développement Web", items: ["HTML5", "CSS3", "JavaScript", "Responsive Design"], color: "ocean" },
-  { icon: "⚙️", title: "Développement Backend", items: ["Python", "Laravel", "API REST", "Postman"], color: "coral" },
-  { icon: "🗄️", title: "Bases de Données", items: ["Supabase", "MYSQL", "PostgreSQL", "Requêtes SQL"], color: "sun" },
-  { icon: "⚛️", title: "Frontend Moderne", items: ["React", "Consommation d'API", "Interfaces interactives"], color: "ocean" },
-  { icon: "🔀", title: "Git & GitHub", items: ["Gestion de versions", "Collaboration", "Branches", "README pro"], color: "coral" },
-  { icon: "🎨", title: "Design Graphique", items: ["Figma", "Canva", "Maquettage", "UI Design"], color: "sun" },
-  { icon: "🎬", title: "Montage Vidéo", items: ["Bases du montage", "Motion Design", "Vidéos IA"], color: "ocean" },
-  { icon: "🤖", title: "IA & Automatisation", items: ["Outils IA", "Automatisation", "Productivité"], color: "coral" },
-  { icon: "📱", title: "UI/UX & Marketing", items: ["Psychologie du design", "UX", "Produits numériques"], color: "sun" },
-  { icon: "👥", title: "Gestion de Projet", items: ["Collaboration", "Organisation", "Méthodes agiles"], color: "ocean" },
+  { logo: "html5", title: "Développement Web", items: ["HTML5", "CSS3", "JavaScript", "Responsive Design"], color: "ocean" },
+  { logo: "python", title: "Développement Backend", items: ["Python", "Laravel", "API REST", "Postman"], color: "coral" },
+  { logo: "supabase", title: "Bases de Données", items: ["Supabase", "MYSQL", "PostgreSQL", "Requêtes SQL"], color: "sun" },   // ← nouveau logo
+  { logo: "react", title: "Frontend Moderne", items: ["React", "Consommation d'API", "Interfaces interactives"], color: "ocean" },
+  { logo: "github", title: "Git & GitHub", items: ["Gestion de versions", "Collaboration", "Branches", "README pro"], color: "coral" },   // ← nouveau logo
+  { logo: "figma", title: "Design Graphique", items: ["Figma", "Canva", "Maquettage", "UI Design"], color: "sun" },
+  { logo: "capcut", title: "Montage Vidéo", items: ["Bases du montage", "Motion Design", "Vidéos IA"], color: "ocean" },
+  { logo: "openai", title: "IA & Automatisation", items: ["Outils IA", "Automatisation", "Productivité"], color: "coral" },
+  { logo: "adobexd", title: "UI/UX & Marketing", items: ["Psychologie du design", "UX", "Produits numériques"], color: "sun" },
+  { logo: "trello", title: "Gestion de Projet", items: ["Collaboration", "Organisation", "Méthodes agiles"], color: "ocean" },
 ];
-
 const hackathonThemes = ["Éducation", "Santé", "Business", "Société", "Environnement", "Numérique"];
 
 const criteria = ["Innovation", "Utilité du projet", "Qualité technique", "Design & UX", "Présentation finale", "Travail d'équipe"];
@@ -282,31 +284,38 @@ function Index() {
         </section>
 
         {/* INFOS GÉNÉRALES */}
-        <section className="mx-auto max-w-7xl px-6 py-20">
-          <div className="grid md:grid-cols-4 gap-5">
-            {[
-              { label: "Durée", value: "4 semaines", icon: "📅", grad: "bg-gradient-ocean" },
-              { label: "Mode", value: "90% en ligne", icon: "💻", grad: "bg-gradient-sun" },
-              { label: "Clôture", value: "Hackathon + Cérémonie", icon: "🎉", grad: "bg-gradient-coral" },
-              { label: "Inscription", value: "10 000 FCFA", icon: "🎟️", grad: "bg-gradient-ocean" },
-            ].map((c, i) => (
-              <Reveal key={c.label} delay={i * 100}>
-                <div className="relative rounded-2xl bg-card p-6 shadow-soft border border-border overflow-hidden hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
-                  <div className={`absolute -right-6 -top-6 w-24 h-24 ${c.grad} rounded-full opacity-20`} />
-                  <div className="text-3xl">{c.icon}</div>
-                  <div className="mt-3 text-xs uppercase tracking-wider text-muted-foreground font-semibold">{c.label}</div>
-                  <div className="mt-1 font-display text-2xl font-bold">{c.value}</div>
-                </div>
-              </Reveal>
-            ))}
+      <section className="mx-auto max-w-7xl px-6 py-20">
+  <div className="grid md:grid-cols-4 gap-5">
+    {[
+      { label: "Durée", value: "4 semaines", iconKey: "calendar", grad: "bg-gradient-ocean" },
+      { label: "Mode", value: "100% en ligne", iconKey: "laptop", grad: "bg-gradient-sun" },
+      { label: "Clôture", value: "Mini Hackathon", iconKey: "celebration", grad: "bg-gradient-coral" },
+      { label: "Inscription", value: "10 000 FCFA", iconKey: "ticket", grad: "bg-gradient-ocean" },
+    ].map((c, i) => (
+      <Reveal key={c.label} delay={i * 100}>
+        <div className="relative rounded-2xl bg-card p-6 shadow-soft border border-border overflow-hidden hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
+          <div className={`absolute -right-6 -top-6 w-24 h-24 ${c.grad} rounded-full opacity-20`} />
+          {/* Nouveau : image à la place de l'emoji */}
+          <div className="w-10 h-10 mb-2">
+            <img
+              src={infoIconMap[c.iconKey]}
+              alt={c.label}
+              className="w-full h-full object-contain"
+            />
           </div>
-        </section>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">{c.label}</div>
+          <div className="mt-1 font-display text-2xl font-bold">{c.value}</div>
+        </div>
+      </Reveal>
+    ))}
+  </div>
+</section>
 
         {/* PROGRAMME */}
         <section id="programme" className="mx-auto max-w-7xl px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <Reveal>
-              <Pill>💻 Semaines 1 & 3</Pill>
+              <Pill> Semaines 1 & 3</Pill>
             </Reveal>
             <Reveal delay={100}>
               <h2 className="mt-5 font-display text-5xl font-bold">Formation intensive</h2>
@@ -319,9 +328,9 @@ function Index() {
             {tracks.map((t, i) => (
               <Reveal key={t.title} delay={i * 80}>
                 <div className="group rounded-2xl bg-card p-6 border border-border shadow-soft hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
-                  <div className={`inline-flex w-14 h-14 items-center justify-center rounded-2xl text-3xl ${
-                    t.color === "ocean" ? "bg-gradient-ocean" : t.color === "coral" ? "bg-gradient-coral" : "bg-gradient-sun"
-                  }`}>{t.icon}</div>
+               <div className="inline-flex w-14 h-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+  <img src={logoMap[t.logo]} alt={t.title} className="w-7 h-7 object-contain" />
+</div>
                   <h3 className="mt-4 font-display text-xl font-bold">{t.title}</h3>
                   <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground">
                     {t.items.map((item) => <li key={item} className="flex gap-2"><span className="text-primary">›</span>{item}</li>)}
@@ -340,8 +349,10 @@ function Index() {
           </div>
           <div className="relative mx-auto max-w-5xl px-6 grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <span className="inline-block text-5xl animate-pulse">🔥</span>
-              <h2 className="mt-4 font-display text-5xl font-bold">Soirées Campfire</h2>
+  <div className="inline-block animate-pulse">
+        <img src={campfireImg} alt="Campfire" className="w-20 h-20 object-contain" />
+      </div>
+                    <h2 className="mt-4 font-display text-5xl font-bold">Soirées Campfire</h2>
               <p className="mt-4 text-lg opacity-90">Des moments uniques de détente, d'apprentissage et de networking entre passionnés.</p>
             </div>
             <ul className="space-y-3">
@@ -359,8 +370,8 @@ function Index() {
         {/* HACKATHON */}
         <section className="mx-auto max-w-7xl px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <Reveal><Pill>🏆 Semaine 4</Pill></Reveal>
-            <Reveal delay={100}><h2 className="mt-5 font-display text-5xl font-bold">Mini-Hackathon Amphix</h2></Reveal>
+            <Reveal><Pill> Semaine 4</Pill></Reveal>
+            <Reveal delay={100}><h2 className="mt-5 font-display text-5xl font-bold">Mini-Hackathon</h2></Reveal>
             <Reveal delay={200}><p className="mt-4 text-lg text-muted-foreground">En équipes, concevez une solution innovante répondant à un problème réel.</p></Reveal>
           </div>
           <div className="grid md:grid-cols-2 gap-6">
@@ -389,39 +400,7 @@ function Index() {
           </div>
         </section>
 
-        {/* SUMMER FEST — Parallax section */}
-        <section className="relative bg-gradient-coral text-accent-foreground py-20 overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-10 left-[20%] w-64 h-64 rounded-full bg-white/5 blur-3xl animate-pulse" />
-            <div className="absolute bottom-10 right-[10%] w-48 h-48 rounded-full bg-yellow-300/10 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-          </div>
-          <div className="relative mx-auto max-w-6xl px-6">
-            <div className="text-center max-w-2xl mx-auto">
-              <span className="inline-block text-5xl animate-bounce">🎉</span>
-              <h2 className="mt-4 font-display text-5xl font-bold">Amphix Summer Fest</h2>
-              <p className="mt-4 text-lg opacity-95">Une journée exceptionnelle vous attend à la plage de la Place de l’Amazone pour célébrer les réalisations et les succès des participants dans une ambiance conviviale et festive.</p>
-            </div>
-            <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { i: "🎤", t: "Présentation des projets" },
-                { i: "🏆", t: "Remise des prix" },
-                { i: "📜", t: "Certificats" },
-                { i: "🎮", t: "Jeux & animations" },
-                { i: "💃", t: "Ambiance & danse" },
-                { i: "📸", t: "Séance photo" },
-                { i: "🍽️", t: "Collation & repas" },
-                { i: "🤝", t: "Networking" },
-              ].map((a, i) => (
-                <Reveal key={a.t} delay={i * 80}>
-                  <div className="rounded-2xl bg-white/15 backdrop-blur p-5 border border-white/20 text-center hover:bg-white/25 hover:scale-105 transition-all duration-300">
-                    <div className="text-3xl">{a.i}</div>
-                    <div className="mt-2 text-sm font-semibold">{a.t}</div>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
+       
 
         {/* RÉCOMPENSES — Parallax section */}
         <section className="relative mx-auto max-w-6xl px-6 py-20 overflow-hidden">
@@ -436,9 +415,9 @@ function Index() {
             </div>
             <div className="grid md:grid-cols-3 gap-5 mb-5">
               {[
-                { medal: "🥇", title: "20 000 FCFA", g: "bg-gradient-sun" },
-                { medal: "🥈", title: "15 000 FCFA", g: "bg-gradient-ocean" },
-                { medal: "🥉", title: "10 000 FCFA", g: "bg-gradient-coral" },
+                { medal: "🥇", title: "1er prix", g: "bg-gradient-sun" },
+                { medal: "🥈", title: "2e prix", g: "bg-gradient-ocean" },
+                { medal: "🥉", title: "3e prix", g: "bg-gradient-coral" },
               ].map((p, i) => (
                 <Reveal key={p.title} delay={i * 150}>
                   <div className={`rounded-3xl ${p.g} p-8 text-center text-primary-foreground shadow-pop hover:scale-105 transition-transform duration-300`} style={{ transform: i === 0 ? "scale(1.04)" : undefined }}>
@@ -448,20 +427,17 @@ function Index() {
                 </Reveal>
               ))}
             </div>
-            <div className="grid md:grid-cols-2 gap-5">
-              <Reveal delay={0}>
-                <div className="rounded-2xl bg-card border border-border p-6 flex items-center gap-4 shadow-soft hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
-                  <span className="text-4xl">🏅</span>
-                  <div><div className="font-display text-xl font-bold">Prix du Public</div><div className="text-sm text-muted-foreground">Pour tous les participants</div></div>
-                </div>
-              </Reveal>
-              <Reveal delay={100}>
-                <div className="rounded-2xl bg-card border border-border p-6 flex items-center gap-4 shadow-soft hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
-                  <span className="text-4xl">🎖️</span>
-                  <div><div className="font-display text-xl font-bold">Certificat des participants</div><div className="text-sm text-muted-foreground">Pour tous les participants</div></div>
-                </div>
-              </Reveal>
-            </div>
+           <div className="flex justify-center">
+  <Reveal delay={100}>
+    <div className="rounded-2xl bg-card border border-border p-6 flex items-center gap-4 shadow-soft hover:shadow-pop hover:-translate-y-1 transition-all duration-300 max-w-md">
+  <img src={certificatImg} alt="Certificat" className="w-12 h-12 object-contain" />
+  <div>
+        <div className="font-display text-xl font-bold">Certificat des participants</div>
+        <div className="text-sm text-muted-foreground">Pour tous les participants</div>
+      </div>
+    </div>
+  </Reveal>
+</div>
           </div>
         </section>
 
@@ -532,6 +508,17 @@ function Index() {
             </div>
           </Reveal>
         </section>
+
+        <div className="mb-16">
+  <InfiniteTextMarquee
+    text="BootCamp"
+    link="/inscription"
+    tooltipText="Réserver ma place"
+    fontSize="6rem"
+    hoverColor="#fb923c"
+  />
+</div>
+
 
         <footer className="border-t border-border py-10">
           <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
