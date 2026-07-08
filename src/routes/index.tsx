@@ -432,7 +432,7 @@ function Index() {
     <div className="rounded-2xl bg-card border border-border p-6 flex items-center gap-4 shadow-soft hover:shadow-pop hover:-translate-y-1 transition-all duration-300 max-w-md">
   <img src={certificatImg} alt="Certificat" className="w-12 h-12 object-contain" />
   <div>
-        <div className="font-display text-xl font-bold">Certificat des participants</div>
+        <div className="font-display text-xl font-bold">Certificat des participants </div>
         <div className="text-sm text-muted-foreground">Pour tous les participants</div>
       </div>
     </div>
