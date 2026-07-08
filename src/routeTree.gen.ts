@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as InscritRouteImport } from './routes/inscrit'
 import { Route as InscriptionRouteImport } from './routes/inscription'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
+const InscritRoute = InscritRouteImport.update({
+  id: '/inscrit',
+  path: '/inscrit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InscriptionRoute = InscriptionRouteImport.update({
   id: '/inscription',
   path: '/inscription',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/connexion': typeof ConnexionRoute
   '/dashboard': typeof DashboardRoute
   '/inscription': typeof InscriptionRoute
+  '/inscrit': typeof InscritRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/connexion': typeof ConnexionRoute
   '/dashboard': typeof DashboardRoute
   '/inscription': typeof InscriptionRoute
+  '/inscrit': typeof InscritRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,27 @@ export interface FileRoutesById {
   '/connexion': typeof ConnexionRoute
   '/dashboard': typeof DashboardRoute
   '/inscription': typeof InscriptionRoute
+  '/inscrit': typeof InscritRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/connexion' | '/dashboard' | '/inscription'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/connexion'
+    | '/dashboard'
+    | '/inscription'
+    | '/inscrit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/connexion' | '/dashboard' | '/inscription'
-  id: '__root__' | '/' | '/admin' | '/connexion' | '/dashboard' | '/inscription'
+  to: '/' | '/admin' | '/connexion' | '/dashboard' | '/inscription' | '/inscrit'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/connexion'
+    | '/dashboard'
+    | '/inscription'
+    | '/inscrit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,10 +99,18 @@ export interface RootRouteChildren {
   ConnexionRoute: typeof ConnexionRoute
   DashboardRoute: typeof DashboardRoute
   InscriptionRoute: typeof InscriptionRoute
+  InscritRoute: typeof InscritRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/inscrit': {
+      id: '/inscrit'
+      path: '/inscrit'
+      fullPath: '/inscrit'
+      preLoaderRoute: typeof InscritRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inscription': {
       id: '/inscription'
       path: '/inscription'
@@ -125,6 +155,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConnexionRoute: ConnexionRoute,
   DashboardRoute: DashboardRoute,
   InscriptionRoute: InscriptionRoute,
+  InscritRoute: InscritRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
