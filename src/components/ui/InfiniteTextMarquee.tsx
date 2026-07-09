@@ -1,7 +1,7 @@
 import * as React from "react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router"; // adapte l'import selon ta config
+import { useEffect, useState, useCallback } from "react";
+import { Link } from "@tanstack/react-router";
 
 type InfiniteTextMarqueeProps = {
   text?: string;
@@ -22,15 +22,27 @@ export const InfiniteTextMarquee: React.FC<InfiniteTextMarqueeProps> = ({
   tooltipText = "Réserver ma place",
   fontSize = "8rem",
   textColor = "",
-  hoverColor = "#38bdf8", // couleur sky-400 par défaut
+  hoverColor = "#38bdf8",
 }) => {
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
   const [rotation, setRotation] = useState(0);
   const maxRotation = 8;
+  const [isMobile, setIsMobile] = useState(false);
 
+  // Détection mobile
   useEffect(() => {
-    if (!showTooltip) return;
+    const checkMobile = () => {
+      setIsMobile(window.matchMedia("(max-width: 768px)").matches || "ontouchstart" in window);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Gestion souris (desktop uniquement)
+  useEffect(() => {
+    if (!showTooltip || isMobile) return;
     const handleMouseMove = (e: MouseEvent) => {
       setCursorPosition({ x: e.clientX, y: e.clientY });
       const midpoint = window.innerWidth / 2;
@@ -40,17 +52,42 @@ export const InfiniteTextMarquee: React.FC<InfiniteTextMarqueeProps> = ({
     };
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [showTooltip]);
+  }, [showTooltip, isMobile]);
 
-  const repeatedText = Array(10).fill(text).join(" - ") + " -";
+  // Gestion touch (mobile)
+  const handleTouchStart = useCallback(() => setIsHovered(true), []);
+  const handleTouchEnd = useCallback(() => setIsHovered(false), []);
+
+  // Texte répété adapté à la largeur
+  const getRepeatedText = () => {
+    const repeatCount = isMobile ? 6 : 10;
+    return Array(repeatCount).fill(text).join(" - ") + " -";
+  };
+
+  // Font size responsive
+  const getResponsiveFontSize = () => {
+    if (isMobile) return "3rem"; // 48px sur mobile
+    return fontSize;
+  };
+
+  // Speed adapté (plus rapide sur mobile pour l'effet)
+  const getResponsiveSpeed = () => {
+    if (isMobile) return speed * 0.6;
+    return speed;
+  };
+
+  const repeatedText = getRepeatedText();
+  const responsiveFontSize = getResponsiveFontSize();
+  const responsiveSpeed = getResponsiveSpeed();
 
   return (
     <>
-      {showTooltip && (
+      {/* Tooltip - desktop uniquement */}
+      {showTooltip && !isMobile && (
         <div
-          className={`following-tooltip fixed z-[99] transition-opacity duration-300 font-bold px-12 py-6 rounded-3xl text-nowrap
+          className={`following-tooltip fixed z-[99] transition-opacity duration-300 font-bold px-6 py-3 md:px-12 md:py-6 rounded-xl md:rounded-3xl text-nowrap pointer-events-none
             ${isHovered ? "opacity-100" : "opacity-0"}
-            bg-primary text-primary-foreground
+            bg-primary text-primary-foreground text-sm md:text-base
           `}
           style={{
             top: `${cursorPosition.y}px`,
@@ -62,34 +99,37 @@ export const InfiniteTextMarquee: React.FC<InfiniteTextMarqueeProps> = ({
         </div>
       )}
 
-      <main className="relative w-full overflow-hidden">
+      <main className="relative w-full overflow-hidden py-4 md:py-0">
         <motion.div
           className="whitespace-nowrap"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
+          onMouseEnter={() => !isMobile && setIsHovered(true)}
+          onMouseLeave={() => !isMobile && setIsHovered(false)}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
           animate={{
             x: [0, -1000],
             transition: {
               repeat: Infinity,
-              duration: speed,
+              duration: responsiveSpeed,
               ease: "linear",
             },
           }}
         >
           <Link to={link}>
             <span
-              className={`cursor-pointer font-bold tracking-tight py-10 m-0 transition-all duration-300 ${
-                textColor ? "" : "text-foreground"
-              }`}
+              className={`cursor-pointer font-bold tracking-tight py-4 md:py-10 m-0 transition-all duration-300 block
+                ${textColor ? "" : "text-foreground"}
+              `}
               style={{
-                fontSize,
+                fontSize: responsiveFontSize,
                 color: textColor || undefined,
+                lineHeight: isMobile ? 1.2 : 1,
               }}
               onMouseEnter={(e) => {
-                if (hoverColor) e.currentTarget.style.color = hoverColor;
+                if (hoverColor && !isMobile) e.currentTarget.style.color = hoverColor;
               }}
               onMouseLeave={(e) => {
-                if (hoverColor) e.currentTarget.style.color = textColor || "";
+                if (hoverColor && !isMobile) e.currentTarget.style.color = textColor || "";
               }}
             >
               {repeatedText}

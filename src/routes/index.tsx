@@ -7,6 +7,8 @@ import certificatImg from "@/assets/logos/certificat.png";
 import { logoMap, infoIconMap } from "@/assets/logos";
 import { SparklesText } from "@/components/ui/sparkles-text";
 import Spline from "@splinetool/react-spline";
+import CountdownTimer from "@/components/ui/CountdownTimer";
+
 // Entré de lapp ts
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -501,77 +503,83 @@ function Index() {
         </section>
 
       {/* CTA INSCRIPTION — Style exact de l'image */}
-<section id="inscription" className="mx-auto max-w-5xl px-6 py-24">
-  <Reveal>
-    <div className="relative rounded-[2.5rem] bg-white text-foreground p-10 md:p-16 text-center overflow-hidden shadow-soft border border-border">
-      
-      {/* Formes décoratives aux coins (comme sur l'image) */}
-      <div className="absolute top-0 left-0 w-40 h-40 rounded-full bg-emerald-400/80 blur-xl opacity-60" 
-           style={{ transform: 'translate(-30%, -30%)' }} />
-      <div className="absolute top-0 left-0 w-32 h-32 rounded-full bg-emerald-300/60 blur-lg opacity-50" 
-           style={{ transform: 'translate(-20%, -10%)' }} />
-      
-      <div className="absolute top-0 left-[15%] w-28 h-28 rounded-full bg-orange-400/80 blur-xl opacity-60" 
-           style={{ transform: 'translateY(-40%)' }} />
-      <div className="absolute top-0 left-[25%] w-20 h-20 rounded-full bg-yellow-400/70 blur-lg opacity-50" 
-           style={{ transform: 'translateY(-30%)' }} />
-      
-      <div className="absolute top-0 right-[20%] w-32 h-32 rounded-full bg-gray-100 blur-lg opacity-80" 
-           style={{ transform: 'translateY(-40%)' }} />
-      <div className="absolute top-0 right-[5%] w-28 h-28 rounded-full bg-gray-50 blur-lg opacity-70" 
-           style={{ transform: 'translateY(-35%)' }} />
-      
-      <div className="absolute top-0 right-0 w-36 h-36 rounded-full bg-purple-500/80 blur-xl opacity-60" 
-           style={{ transform: 'translate(30%, -30%)' }} />
-      <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-purple-400/60 blur-lg opacity-50" 
-           style={{ transform: 'translate(20%, -10%)' }} />
-      
-      <div className="absolute bottom-0 right-[10%] w-32 h-32 rounded-full bg-red-500/70 blur-xl opacity-50" 
-           style={{ transform: 'translateY(40%)' }} />
-      <div className="absolute bottom-0 right-[5%] w-24 h-24 rounded-full bg-red-400/50 blur-lg opacity-40" 
-           style={{ transform: 'translateY(30%)' }} />
+          {/* CTA INSCRIPTION — Style exact de l'image */}
+      <section id="inscription" className="w-full bg-white py-24">
+        <div className="mx-auto max-w-5xl px-6">
+          <Reveal>
+            <div className="relative rounded-[2.5rem] bg-white text-foreground p-10 md:p-16 text-center overflow-hidden shadow-soft border border-border">
+              
+              {/* Formes décoratives aux coins — TOUT EN BLANC */}
+              <div className="absolute top-0 left-0 w-40 h-40 rounded-full bg-white blur-xl opacity-60" 
+                   style={{ transform: 'translate(-30%, -30%)' }} />
+              <div className="absolute top-0 left-0 w-32 h-32 rounded-full bg-white blur-lg opacity-50" 
+                   style={{ transform: 'translate(-20%, -10%)' }} />
+              
+              <div className="absolute top-0 left-[15%] w-28 h-28 rounded-full bg-white blur-xl opacity-60" 
+                   style={{ transform: 'translateY(-40%)' }} />
+              <div className="absolute top-0 left-[25%] w-20 h-20 rounded-full bg-white blur-lg opacity-50" 
+                   style={{ transform: 'translateY(-30%)' }} />
+              
+              <div className="absolute top-0 right-[20%] w-32 h-32 rounded-full bg-white blur-lg opacity-80" 
+                   style={{ transform: 'translateY(-40%)' }} />
+              <div className="absolute top-0 right-[5%] w-28 h-28 rounded-full bg-white blur-lg opacity-70" 
+                   style={{ transform: 'translateY(-35%)' }} />
+              
+              <div className="absolute top-0 right-0 w-36 h-36 rounded-full bg-white blur-xl opacity-60" 
+                   style={{ transform: 'translate(30%, -30%)' }} />
+              <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white blur-lg opacity-50" 
+                   style={{ transform: 'translate(20%, -10%)' }} />
+              
+              <div className="absolute bottom-0 right-[10%] w-32 h-32 rounded-full bg-white blur-xl opacity-50" 
+                   style={{ transform: 'translateY(40%)' }} />
+              <div className="absolute bottom-0 right-[5%] w-24 h-24 rounded-full bg-white blur-lg opacity-40" 
+                   style={{ transform: 'translateY(30%)' }} />
 
-      <div className="relative z-10">
-        {/* Sous-titre en petit caps */}
-        <p className="text-xs font-medium tracking-[0.2em] uppercase text-muted-foreground mb-6">
-          es tu prêt?
-        </p>
-        
-        {/* Titre principal */}
-        <h2 className="font-sans text-5xl md:text-6xl font-medium leading-tight tracking-tight text-foreground">
-          Rejoignez le <br />bootcamp 
-        </h2>
+              <div className="relative z-10">
+                {/* Sous-titre en petit caps */}
+                <p className="text-xs font-medium tracking-[0.2em] uppercase text-muted-foreground mb-6">
+                  es tu prêt?
+                </p>
+                
+                {/* Titre principal */}
+                <h2 className="font-sans text-4xl sm:text-5xl md:text-6xl font-medium leading-tight tracking-tight text-foreground">
+                  Rejoignez le <br className="hidden sm:block" />bootcamp 
+                </h2>
 
-        {/* Boutons */}
-        <div className="mt-10 flex items-center justify-center gap-3">
-          <a
-            href="/inscription"
-            className="rounded-full bg-black text-white px-6 py-2.5 text-sm font-medium hover:bg-black/90 transition-colors"
-          >
-          Réserver ma place
-          </a>
-          <a
-            href="#programme"
-            className="rounded-full bg-white text-foreground px-6 py-2.5 text-sm font-medium border border-border hover:bg-muted transition-colors"
-          >
-            Programme
-          </a>
+                {/* Boutons — RESPONSIVE */}
+                <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <a
+                    href="/inscription"
+                    className="w-full sm:w-auto rounded-full bg-black text-white px-6 py-3 sm:py-2.5 text-sm font-medium hover:bg-black/90 transition-colors text-center"
+                  >
+                    Réserver ma place
+                  </a>
+                  <a
+                    href="#programme"
+                    className="w-full sm:w-auto rounded-full bg-white text-foreground px-6 py-3 sm:py-2.5 text-sm font-medium border border-border hover:bg-muted transition-colors text-center"
+                  >
+                    Programme
+                  </a>
+                </div>
+              </div>
+            </div>
+          </Reveal>
         </div>
+      </section>
+
+
+<CountdownTimer targetDate="2026-07-22T00:00:00+01:00" />
+
+
+      <div className="mb-16">
+        <InfiniteTextMarquee
+          text="BootCamp"
+          link="/inscription"
+          tooltipText="Réserver ma place"
+          fontSize="6rem"
+          hoverColor="#fb923c"
+        />
       </div>
-    </div>
-  </Reveal>
-</section>
-
-        <div className="mb-16">
-  <InfiniteTextMarquee
-    text="BootCamp"
-    link="/inscription"
-    tooltipText="Réserver ma place"
-    fontSize="6rem"
-    hoverColor="#fb923c"
-  />
-</div>
-
 
         <footer className="border-t border-border py-10">
           <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
