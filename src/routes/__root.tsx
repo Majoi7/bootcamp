@@ -11,6 +11,7 @@ import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import FacebookPageTracker from "../components/FacebookPageTracker"; // ← AJOUTÉ
 
 /* ──────────── Composants d’erreur / 404 ──────────── */
 function NotFoundComponent() {
@@ -105,6 +106,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <HeadContent />
+      <FacebookPageTracker />   {/* ← AJOUTÉ ICI */}
       <Outlet />
       <Scripts />
     </QueryClientProvider>

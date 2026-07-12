@@ -1,15 +1,15 @@
 import { useEffect } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import ReactPixel from "@/lib/facebookPixel";
 
-export function FacebookPageTracker() {
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  });
+export default function FacebookPageTracker() {
+  // Récupère l’état complet du routeur
+  const routerState = useRouterState();
 
   useEffect(() => {
-    ReactPixel.pageView();
-  }, [pathname]);
+    if (window.fbq) {
+      window.fbq("track", "PageView");
+    }
+  }, [routerState.location.pathname]); // se déclenche à chaque changement de chemin
 
   return null;
 }
