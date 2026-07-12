@@ -8,6 +8,7 @@ import { logoMap, infoIconMap } from "@/assets/logos";
 import { SparklesText } from "@/components/ui/sparkles-text";
 import Spline from "@splinetool/react-spline";
 import CountdownTimer from "@/components/ui/CountdownTimer";
+import TeamShowcase from "@/components/TeamShowcase";
 
 // Entré de lapp ts
 export const Route = createFileRoute("/")({
@@ -571,6 +572,20 @@ function Index() {
 <CountdownTimer targetDate="2026-07-22T00:00:00+01:00" />
 
 
+
+      {/* Section Équipe */}
+<section className="py-20 bg-white">
+  <div className="text-center mb-12">
+    <Reveal>
+      <Pill> L'Équipe</Pill>
+    </Reveal>
+    <Reveal delay={100}>
+      <h2 className="mt-5 font-display text-5xl font-bold">Rencontrez les mentors</h2>
+    </Reveal>
+  </div>
+  <TeamShowcase />
+</section>
+
       <div className="mb-16">
         <InfiniteTextMarquee
           text="BootCamp"
@@ -580,6 +595,7 @@ function Index() {
           hoverColor="#fb923c"
         />
       </div>
+
 
         <footer className="border-t border-border py-10">
           <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
