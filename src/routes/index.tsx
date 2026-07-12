@@ -9,6 +9,7 @@ import { SparklesText } from "@/components/ui/sparkles-text";
 import Spline from "@splinetool/react-spline";
 import CountdownTimer from "@/components/ui/CountdownTimer";
 import TeamShowcase from "@/components/TeamShowcase";
+import { trackViewContent } from "@/lib/facebookPixel";
 
 // Entré de lapp ts
 export const Route = createFileRoute("/")({
@@ -221,6 +222,11 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 
 function Index() {
   const [showSplash, setShowSplash] = useState(true);
+  useEffect(() => {
+  if (!showSplash) {
+    trackViewContent("Bootcamp Amphix 2026");
+  }
+}, [showSplash]);
   const heroParallax = useParallax(0.3);
   const campFireParallax = useParallax(-0.2);
   const rewardsParallax = useParallax(0.15);

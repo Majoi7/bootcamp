@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import HandWrittenTitle from "@/components/ui/handwritteniitle";
+import { trackLead, trackContact } from "@/lib/facebookPixel";
 
 export const Route = createFileRoute("/inscription")({
   head: () => ({
@@ -247,29 +248,31 @@ function QuestionnairePage() {
   };
 
   const finishQuestionnaire = async () => {
-    setIsSubmitting(true);
+  setIsSubmitting(true);
 
-    if (participantId) {
-      await supabase
-        .from("participants")
-        .update({ questionnaire_completed: true })
-        .eq("id", participantId);
-    }
+  if (participantId) {
+    await supabase
+      .from("participants")
+      .update({ questionnaire_completed: true })
+      .eq("id", participantId);
+  }
 
-    try {
-      await supabase.from("tracking_events").insert({
-        event_type: "questionnaire_completed",
-        participant_id: participantId,
-        metadata: { answers_count: Object.keys(answers).length },
-      });
-    } catch (e) {
-      console.error(e);
-    }
+  try {
+    await supabase.from("tracking_events").insert({
+      event_type: "questionnaire_completed",
+      participant_id: participantId,
+      metadata: { answers_count: Object.keys(answers).length },
+    });
+  } catch (e) {
+    console.error(e);
+  }
 
-    setIsFinished(true);
-    setIsSubmitting(false);
-  };
+  // ✅ Nouvel événement Meta
+  trackLead();
 
+  setIsFinished(true);
+  setIsSubmitting(false);
+};
   /* ─── Page Finale ──────────────────────────────────────────────────────── */
   if (isFinished) {
     return (
@@ -344,6 +347,7 @@ function QuestionnairePage() {
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 font-semibold text-sm sm:text-lg hover:bg-[#128C7E] transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg w-full sm:w-auto"
               onClick={async () => {
+                trackContact(); // ← nouvel événement Meta
                 if (participantId) {
                   await supabase.from("tracking_events").insert({
                     event_type: "whatsapp_click",
