@@ -13,6 +13,7 @@ import { Route as InscritRouteImport } from './routes/inscrit'
 import { Route as InscriptionRouteImport } from './routes/inscription'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConnexionRouteImport } from './routes/connexion'
+import { Route as AvisRouteImport } from './routes/avis'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -36,6 +37,11 @@ const ConnexionRoute = ConnexionRouteImport.update({
   path: '/connexion',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AvisRoute = AvisRouteImport.update({
+  id: '/avis',
+  path: '/avis',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -50,6 +56,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/avis': typeof AvisRoute
   '/connexion': typeof ConnexionRoute
   '/dashboard': typeof DashboardRoute
   '/inscription': typeof InscriptionRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/avis': typeof AvisRoute
   '/connexion': typeof ConnexionRoute
   '/dashboard': typeof DashboardRoute
   '/inscription': typeof InscriptionRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/avis': typeof AvisRoute
   '/connexion': typeof ConnexionRoute
   '/dashboard': typeof DashboardRoute
   '/inscription': typeof InscriptionRoute
@@ -77,16 +86,25 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/avis'
     | '/connexion'
     | '/dashboard'
     | '/inscription'
     | '/inscrit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/connexion' | '/dashboard' | '/inscription' | '/inscrit'
+  to:
+    | '/'
+    | '/admin'
+    | '/avis'
+    | '/connexion'
+    | '/dashboard'
+    | '/inscription'
+    | '/inscrit'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/avis'
     | '/connexion'
     | '/dashboard'
     | '/inscription'
@@ -96,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  AvisRoute: typeof AvisRoute
   ConnexionRoute: typeof ConnexionRoute
   DashboardRoute: typeof DashboardRoute
   InscriptionRoute: typeof InscriptionRoute
@@ -132,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConnexionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/avis': {
+      id: '/avis'
+      path: '/avis'
+      fullPath: '/avis'
+      preLoaderRoute: typeof AvisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -152,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  AvisRoute: AvisRoute,
   ConnexionRoute: ConnexionRoute,
   DashboardRoute: DashboardRoute,
   InscriptionRoute: InscriptionRoute,

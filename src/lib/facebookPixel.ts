@@ -28,7 +28,7 @@ export const initFacebookPixel = () => {
   );
 
   fbq("init", pixelId);
-  fbq('set', 'autoConfig', false, 'SubscribedButtonClick');
+  fbq('set', 'autoConfig', false);
   fbq("track", "PageView");
 };
 

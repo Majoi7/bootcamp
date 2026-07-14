@@ -9,16 +9,18 @@ import { SparklesText } from "@/components/ui/sparkles-text";
 import Spline from "@splinetool/react-spline";
 import CountdownTimer from "@/components/ui/CountdownTimer";
 import TeamShowcase from "@/components/TeamShowcase";
-import { trackViewContent } from "@/lib/facebookPixel";
-
+import { supabase } from "@/lib/supabase"; // adapte le chemin
+import TestimonialsSection, { type Testimonial } from "@/components/TestimonialsSection";
+import Modal from "@/components/Modal";
+import AvisForm from "@/components/AvisForm";
 // Entré de lapp ts
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Bootcamp Amphix 2026 — Apprendre, Construire, Innover" },
-      { name: "description", content: "4 semaines de formation intensive aux métiers du numérique. Web, IA, Design, Hackathon. Inscription : 10 000 FCFA." },
+      { name: "description", content: "4 semaines de formation intensive aux métiers du numérique. Web, IA, Design, Hackathon. Inscription : 9 999 FCFA." },
       { property: "og:title", content: "Bootcamp Amphix 2026" },
-      { property: "og:description", content: "4 semaines pour transformer vos idées en projets concrets. Inscription : 10 000 FCFA." },
+      { property: "og:description", content: "4 semaines pour transformer vos idées en projets concrets. Inscription : 9 999 FCFA." },
       { property: "og:image", content: heroImg },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -222,14 +224,28 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 
 function Index() {
   const [showSplash, setShowSplash] = useState(true);
-  useEffect(() => {
-  if (!showSplash) {
-    trackViewContent("Bootcamp Amphix 2026");
-  }
-}, [showSplash]);
+    const [showForm, setShowForm] = useState(false);  // ← AJOUTE CETTE LIGNE
+
   const heroParallax = useParallax(0.3);
   const campFireParallax = useParallax(-0.2);
   const rewardsParallax = useParallax(0.15);
+const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      const { data, error } = await supabase
+        .from("testimonials")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Erreur chargement témoignages :", error);
+      } else if (data) {
+        setTestimonials(data);
+      }
+    };
+    fetchTestimonials();
+  }, []);
 
   return (
     <>
@@ -283,8 +299,8 @@ function Index() {
                 <div className="transition-transform hover:scale-110"><span className="font-bold text-foreground text-2xl">4</span> semaines
                 </div>
                 <div className="transition-transform hover:scale-110"><span className="font-bold text-foreground text-2xl">10+</span> modules</div>
-                <div className="transition-transform hover:scale-110"><span className="font-bold text-foreground text-2xl">90%</span> en ligne</div>
-                <div className="transition-transform hover:scale-110"><span className="font-bold text-foreground text-2xl">1</span> hackathon</div>
+                <div className="transition-transform hover:scale-110"><span className="font-bold text-foreground text-2xl">100%</span> en ligne</div>
+                <div className="transition-transform hover:scale-110"><span className="font-bold text-foreground text-2xl">1</span> min hackathon</div>
               </div>
             </div>
             <div className="relative animate-float">
@@ -301,7 +317,7 @@ function Index() {
       { label: "Durée", value: "4 semaines", iconKey: "calendar", grad: "bg-gradient-ocean" },
       { label: "Mode", value: "100% en ligne", iconKey: "laptop", grad: "bg-gradient-sun" },
       { label: "Clôture", value: "Mini Hackathon", iconKey: "celebration", grad: "bg-gradient-coral" },
-      { label: "Inscription", value: "10 000 FCFA", iconKey: "ticket", grad: "bg-gradient-ocean" },
+      { label: "Inscription", value: "9 999 FCFA", iconKey: "ticket", grad: "bg-gradient-ocean" },
     ].map((c, i) => (
       <Reveal key={c.label} delay={i * 100}>
         <div className="relative rounded-2xl bg-card p-6 shadow-soft border border-border overflow-hidden hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
@@ -575,7 +591,7 @@ function Index() {
       </section>
 
 
-<CountdownTimer targetDate="2026-07-22T00:00:00+01:00" />
+<CountdownTimer targetDate="2026-07-24T00:00:00+01:00" />
 
 
 
@@ -601,14 +617,24 @@ function Index() {
           hoverColor="#fb923c"
         />
       </div>
+    
+
+      
 
 
-        <footer className="border-t border-border py-10">
-          <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2"><span></span><span className="font-display font-bold text-foreground">Amphix</span> · Bootcamp 2026</div>
-            <div>« Apprendre, Construire, Innover »</div>
-          </div>
-        </footer>
+  {/* Modale avec le formulaire */}
+      <Modal isOpen={showForm} onClose={() => setShowForm(false)}>
+        <AvisForm />
+      </Modal>
+
+       <footer className="border-t border-border py-10">
+  <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+    <div className="flex items-center gap-2">
+      <span className="font-display font-bold text-foreground">Amphix</span> · Bootcamp 2026
+    </div>
+    <div>« Apprendre, Construire, Innover »</div>
+  </div>
+</footer>
       </main>
     </>
   );
