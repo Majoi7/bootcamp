@@ -12,7 +12,6 @@ export const Route = createFileRoute("/dashboard")({
       { name: "description", content: "Dashboard participant du Bootcamp Amphix 2026." },
       { name: "theme-color", content: "#4f46e5" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
     ],
     links: [
@@ -298,7 +297,6 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
   const [now, setNow] = useState(new Date());
-  const NB_JOURS = 6; // modifiable à volonté
 
   const dayPillRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const swipeAreaRef = useRef<HTMLDivElement | null>(null);
@@ -316,15 +314,14 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
   const [windowStart, setWindowStart] = useState<Date>(() => {
     const today = new Date();
     const start = new Date(today);
-    const offset = Math.floor(NB_JOURS / 2);
-    start.setDate(today.getDate() - offset); // aujourd'hui à l'index offset
+    start.setDate(today.getDate() - 2); // aujourd'hui à l'index 2
     return start;
   });
 
   // 5 jours visibles
   const visibleDays = useMemo(() => {
     const days: Date[] = [];
-    for (let i = 0; i < NB_JOURS; i++) {
+    for (let i = 0; i < 5; i++) {
       const d = new Date(windowStart);
       d.setDate(windowStart.getDate() + i);
       days.push(d);
@@ -338,9 +335,8 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
   // Re‑centrer sur aujourd'hui
   const centerOnToday = () => {
     const today = new Date();
-    const offset = Math.floor(NB_JOURS / 2);
     const newStart = new Date(today);
-    newStart.setDate(today.getDate() - offset);
+    newStart.setDate(today.getDate() - 2);
     setWindowStart(newStart);
     setSelectedDay(2);
   };
@@ -366,14 +362,14 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
     setSelectedDay((prev) => {
       const newIdx = prev - steps; // quand on décale la fenêtre, l'index apparent bouge
       // On force dans [0,4] (la fenêtre a 5 jours)
-      return Math.max(0, Math.min(NB_JOURS - 1, newIdx));
+      return Math.max(0, Math.min(4, newIdx));
     });
   };
 
   // Navigation jour par jour (glissement / swipe)
   const goToAdjacentDay = (direction: 1 | -1) => {
     const nextIdx = selectedDay + direction;
-    if (nextIdx >= 0 && nextIdx <= NB_JOURS - 1) {
+    if (nextIdx >= 0 && nextIdx <= 4) {
       // Dans la fenêtre actuelle
       setSlideDir(direction === 1 ? "left" : "right");
       setSelectedDay(nextIdx);
@@ -492,7 +488,7 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
           <p className="text-xs text-muted-foreground mt-0.5 truncate">
             {visibleDays[0].toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
             {" — "}
-            {visibleDays[NB_JOURS - 1].toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+            {visibleDays[4].toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
           </p>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -503,16 +499,16 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
             Aujourd'hui
           </button>
           <button
-            onClick={() => shiftWindow(-NB_JOURS)}
+            onClick={() => shiftWindow(-5)}
             className="p-2 rounded-lg hover:bg-muted active:scale-90 transition-all flex-shrink-0"
-            aria-label={`${NB_JOURS} jours précédents`}
+            aria-label="5 jours précédents"
           >
             <IconChevronLeft className="w-4 h-4" />
           </button>
           <button
-            onClick={() => shiftWindow(NB_JOURS)}
+            onClick={() => shiftWindow(5)}
             className="p-2 rounded-lg hover:bg-muted active:scale-90 transition-all flex-shrink-0"
-            aria-label={`${NB_JOURS} jours suivants`}
+            aria-label="5 jours suivants"
           >
             <IconChevronRight className="w-4 h-4" />
           </button>
@@ -656,8 +652,8 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
         className="hidden lg:block bg-card rounded-2xl border border-border shadow-soft overflow-hidden animate-fade-in"
       >
         <div className="overflow-x-auto scrollbar-hide">
-          <div className="min-w-[900px]">
-            <div className={`grid grid-cols-${NB_JOURS} border-b border-border sticky top-0 z-10 bg-card`}>
+          <div className="min-w-[750px]">
+            <div className="grid grid-cols-6 border-b border-border sticky top-0 z-10 bg-card">
               <div className="p-3 text-xs font-semibold text-muted-foreground border-r border-border bg-muted/30 flex items-center justify-center">
                 Heure
               </div>
@@ -685,7 +681,7 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
               })}
             </div>
 
-            <div className={`grid grid-cols-${NB_JOURS} relative`} style={{ height: HAUTEUR_GRILLE }}>
+            <div className="grid grid-cols-6 relative" style={{ height: HAUTEUR_GRILLE }}>
               {/* Colonne des heures */}
               <div className="relative border-r border-border bg-muted/20">
                 {heures.map((heure) => (
@@ -906,14 +902,13 @@ function CoursTab({ sessions, user }: { sessions: Session[]; user: User }) {
       {/* Cours à venir */}
       <div className="space-y-3">
         {coursFuturs.length === 0 ? (
-         // Dans CoursTab, remplace le bloc vide par :
-<div className="flex flex-col items-center justify-center py-16 text-center">
-  <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-    <IconBook className="w-8 h-8 text-muted-foreground" />
-  </div>
-  <p className="text-sm font-medium text-muted-foreground">Aucun cours programmé</p>
-  <p className="text-xs text-muted-foreground/60 mt-1">Revenez bientôt !</p>
-</div>
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
+              <IconBook className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">Aucun cours programmé</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Revenez bientôt !</p>
+          </div>
         ) : (
           coursFuturs.map((session) => {
             const dateObj = new Date(session.date);
