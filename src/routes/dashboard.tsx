@@ -1,6 +1,7 @@
 // src/routes/dashboard.tsx
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import type React from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/dashboard")({
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/dashboard")({
       { name: "description", content: "Dashboard participant du Bootcamp Amphix 2026." },
       { name: "theme-color", content: "#4f46e5" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
     ],
     links: [
@@ -162,16 +164,6 @@ function IconLogout({ className = "w-6 h-6" }: { className?: string }) {
   );
 }
 
-function IconMenu({ className = "w-6 h-6" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  );
-}
-
 function IconX({ className = "w-6 h-6" }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -304,6 +296,20 @@ function PWAInstallPrompt() {
 function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
+  const [now, setNow] = useState(new Date());
+
+  const dayPillRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const swipeAreaRef = useRef<HTMLDivElement | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchLocked = useRef<boolean | null>(null);
+
+  // Horloge vivante — utile pour la ligne "maintenant" et les badges "en cours"
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   const weekStart = useMemo(() => {
     const d = new Date(currentWeek);
@@ -321,7 +327,11 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
   const joursSemaine = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   const joursComplets = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
-  const heures = Array.from({ length: 13 }, (_, i) => i + 8);
+  const HEURE_DEBUT = 8;
+  const HEURE_FIN = 21;
+  const heures = Array.from({ length: HEURE_FIN - HEURE_DEBUT }, (_, i) => i + HEURE_DEBUT);
+  const HAUTEUR_HEURE = 64; // px par heure sur la grille desktop
+  const HAUTEUR_GRILLE = (HEURE_FIN - HEURE_DEBUT) * HAUTEUR_HEURE;
 
   const sessionsParJour = useMemo(() => {
     const result: { [key: number]: Session[] } = {};
@@ -335,205 +345,372 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
   }, [sessions, weekStart]);
 
   const navigateWeek = (direction: number) => {
+    setSlideDir(direction > 0 ? "left" : "right");
     const d = new Date(currentWeek);
     d.setDate(d.getDate() + direction * 7);
     setCurrentWeek(d);
   };
 
-  const goToToday = () => setCurrentWeek(new Date());
+  const goToToday = () => {
+    setCurrentWeek(new Date());
+    setSelectedDay(todayIndexOf(new Date()));
+  };
 
-  const todayIndex = useMemo(() => {
-    const today = new Date();
-    const day = today.getDay();
+  function todayIndexOf(d: Date) {
+    const day = d.getDay();
     return day === 0 ? 6 : day - 1;
-  }, []);
+  }
+
+  const todayIndex = useMemo(() => todayIndexOf(new Date()), []);
 
   // Sessions du jour sélectionné (vue mobile)
   const [selectedDay, setSelectedDay] = useState(todayIndex);
 
-  const sessionsDuJour = sessionsParJour[selectedDay] || [];
+  const sessionsDuJour = useMemo(
+    () => (sessionsParJour[selectedDay] || []).slice().sort((a, b) => a.heure_debut.localeCompare(b.heure_debut)),
+    [sessionsParJour, selectedDay]
+  );
+
+  // Centre automatiquement le jour sélectionné dans le sélecteur horizontal
+  useEffect(() => {
+    dayPillRefs.current[selectedDay]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [selectedDay, weekStart]);
+
+  const selectDay = (i: number, dir?: "left" | "right") => {
+    setSlideDir(dir ?? (i > selectedDay ? "left" : i < selectedDay ? "right" : null));
+    setSelectedDay(i);
+  };
+
+  // Navigation fluide : glisser d'un jour à l'autre, en franchissant les limites de semaine si besoin
+  const goToAdjacentDay = (direction: 1 | -1) => {
+    const next = selectedDay + direction;
+    if (next > 6) {
+      setSlideDir("left");
+      const d = new Date(currentWeek);
+      d.setDate(d.getDate() + 7);
+      setCurrentWeek(d);
+      setSelectedDay(0);
+    } else if (next < 0) {
+      setSlideDir("right");
+      const d = new Date(currentWeek);
+      d.setDate(d.getDate() - 7);
+      setCurrentWeek(d);
+      setSelectedDay(6);
+    } else {
+      selectDay(next, direction === 1 ? "left" : "right");
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    touchLocked.current = null;
+  };
+
+  // onTouchMove via JSX est attaché en mode "passive" par React : preventDefault() y est silencieusement
+  // ignoré par le navigateur (et génère un warning en boucle). On attache donc ce listener nous-mêmes
+  // en { passive: false } pour pouvoir bloquer le scroll vertical pendant un balayage horizontal.
+  useEffect(() => {
+    const el = swipeAreaRef.current;
+    if (!el) return;
+
+    const onTouchMoveNative = (e: TouchEvent) => {
+      if (touchStartX.current === null || touchStartY.current === null) return;
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - touchStartY.current;
+      if (touchLocked.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        touchLocked.current = Math.abs(dx) > Math.abs(dy);
+      }
+      if (touchLocked.current) e.preventDefault();
+    };
+
+    el.addEventListener("touchmove", onTouchMoveNative, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMoveNative);
+  }, []);
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || !touchLocked.current) {
+      touchStartX.current = null;
+      touchStartY.current = null;
+      return;
+    }
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const SEUIL = 45;
+    if (dx <= -SEUIL) goToAdjacentDay(1);
+    else if (dx >= SEUIL) goToAdjacentDay(-1);
+    touchStartX.current = null;
+    touchStartY.current = null;
+    touchLocked.current = null;
+  };
+
+  const minutesOf = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const isTodayDate = (d: Date) => new Date().toDateString() === d.toDateString();
+
+  // Position de la ligne "maintenant" sur la grille (si la semaine affichée contient aujourd'hui)
+  const nowOffsetPx = useMemo(() => {
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
+    const minMin = HEURE_DEBUT * 60;
+    const maxMin = HEURE_FIN * 60;
+    if (minutesNow < minMin || minutesNow > maxMin) return null;
+    return ((minutesNow - minMin) / 60) * HAUTEUR_HEURE;
+  }, [now]);
+
+  const slideClass = slideDir === "left" ? "animate-slide-in-left" : slideDir === "right" ? "animate-slide-in-right" : "animate-fade-in";
 
   return (
     <div className="space-y-4 animate-fade-in">
+      <style>{`
+        @keyframes calSlideInLeft { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes calSlideInRight { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+        .animate-slide-in-left { animation: calSlideInLeft 0.22s ease-out; }
+        .animate-slide-in-right { animation: calSlideInRight 0.22s ease-out; }
+      `}</style>
+
       {/* Header semaine */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-xl font-bold">Mon emploi du temps</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+      <div className="flex items-center justify-between gap-2">
+        <div key={weekStart.toISOString()} className="animate-fade-in min-w-0 flex-1">
+          <h2 className="font-display text-lg sm:text-xl font-bold truncate">Mon emploi du temps</h2>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
             {weekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — {weekEnd.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={goToToday} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition">
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button onClick={goToToday} className="px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all whitespace-nowrap">
             Aujourd'hui
           </button>
-          <button onClick={() => navigateWeek(-1)} className="p-2 rounded-lg hover:bg-muted transition">
+          <button onClick={() => navigateWeek(-1)} className="p-2 rounded-lg hover:bg-muted active:scale-90 transition-all flex-shrink-0" aria-label="Semaine précédente">
             <IconChevronLeft className="w-4 h-4" />
           </button>
-          <button onClick={() => navigateWeek(1)} className="p-2 rounded-lg hover:bg-muted transition">
+          <button onClick={() => navigateWeek(1)} className="p-2 rounded-lg hover:bg-muted active:scale-90 transition-all flex-shrink-0" aria-label="Semaine suivante">
             <IconChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Sélecteur de jour — mobile */}
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-        {joursSemaine.map((jour, i) => {
-          const jourDate = new Date(weekStart);
-          jourDate.setDate(jourDate.getDate() + i);
-          const isToday = new Date().toDateString() === jourDate.toDateString();
-          const isSelected = selectedDay === i;
-          const count = (sessionsParJour[i] || []).length;
+      {/* Sélecteur de jour — mobile, avec fondu sur les bords pour indiquer le scroll */}
+      <div className="lg:hidden relative -mx-4">
+        <div
+          className="flex gap-2 overflow-x-auto pb-2 px-4 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+          style={{ maskImage: "linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%)", WebkitMaskImage: "linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%)" }}
+        >
+          {joursSemaine.map((jour, i) => {
+            const jourDate = new Date(weekStart);
+            jourDate.setDate(jourDate.getDate() + i);
+            const isToday = isTodayDate(jourDate);
+            const isSelected = selectedDay === i;
+            const count = (sessionsParJour[i] || []).length;
 
-          return (
-            <button
-              key={jour}
-              onClick={() => setSelectedDay(i)}
-              className={[
-                "flex flex-col items-center gap-1 px-3 py-2 rounded-2xl min-w-[52px] transition-all",
-                isSelected
-                  ? "bg-primary text-white shadow-lg shadow-primary/25"
-                  : isToday
-                    ? "bg-primary/10 text-primary"
-                    : "bg-card border border-border text-muted-foreground hover:bg-muted",
-              ].join(" ")}
-            >
-              <span className="text-[10px] font-semibold uppercase">{jour}</span>
-              <span className="text-lg font-bold">{jourDate.getDate()}</span>
-              {count > 0 && (
-                <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : "bg-primary"}`} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Liste des sessions du jour — mobile */}
-      <div className="space-y-3">
-        {sessionsDuJour.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
-              <IconCalendar className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground">Aucun cours ce jour</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Profitez de votre temps libre !</p>
-          </div>
-        ) : (
-          sessionsDuJour
-            .sort((a, b) => a.heure_debut.localeCompare(b.heure_debut))
-            .map((session) => (
-              <div
-                key={session.id}
-                onClick={() => setSelectedSession(session)}
-                className="bg-card rounded-2xl border border-border p-4 shadow-soft active:scale-[0.98] transition-transform cursor-pointer"
+            return (
+              <button
+                key={jour}
+                ref={(el) => (dayPillRefs.current[i] = el)}
+                onClick={() => selectDay(i)}
+                className={[
+                  "snap-center flex flex-col items-center gap-1 px-3 py-2 rounded-2xl min-w-[52px] transition-all duration-200",
+                  isSelected
+                    ? "bg-primary text-white shadow-lg shadow-primary/25 scale-105"
+                    : isToday
+                      ? "bg-primary/10 text-primary"
+                      : "bg-card border border-border text-muted-foreground hover:bg-muted",
+                ].join(" ")}
               >
-                <div className="flex items-start gap-3">
-                  {/* Barre couleur */}
-                  <div
-                    className="w-1.5 h-12 rounded-full flex-shrink-0 mt-1"
-                    style={{ backgroundColor: session.cours?.couleur || "#3b82f6" }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-sm truncate">{session.cours?.titre}</h3>
-                      <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                        {session.heure_debut}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {session.heure_debut} — {session.heure_fin}
-                    </p>
-                    {session.professeur && (
-                      <div className="flex items-center gap-1.5 mt-2">
-                        <div className="w-5 h-5 rounded-full bg-gradient-ocean flex items-center justify-center text-white text-[10px] font-bold">
-                          {session.professeur.prenoms?.[0] || session.professeur.nom[0]}
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {session.professeur.prenoms} {session.professeur.nom}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <IconChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </div>
-            ))
-        )}
+                <span className="text-[10px] font-semibold uppercase">{jour}</span>
+                <span className="text-lg font-bold">{jourDate.getDate()}</span>
+                {count > 0 && (
+                  <span className={`w-1.5 h-1.5 rounded-full transition-colors ${isSelected ? "bg-white" : "bg-primary"}`} />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Vue desktop calendrier grille */}
-      <div className="hidden md:block bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* Liste des sessions du jour — mobile, glissable au doigt */}
+      <div
+        ref={swipeAreaRef}
+        className="lg:hidden space-y-3 touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div key={`${weekStart.toISOString()}-${selectedDay}`} className={slideClass}>
+          {sessionsDuJour.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                <IconCalendar className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">Aucun cours ce jour</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Profitez de votre temps libre !</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sessionsDuJour.map((session) => {
+                const isSelectedDayToday = isTodayDate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + selectedDay));
+                const nowMin = now.getHours() * 60 + now.getMinutes();
+                const debutMin = minutesOf(session.heure_debut);
+                const finMin = minutesOf(session.heure_fin);
+                const enCours = isSelectedDayToday && nowMin >= debutMin && nowMin < finMin;
+                const bientot = isSelectedDayToday && !enCours && debutMin - nowMin > 0 && debutMin - nowMin <= 30;
+
+                return (
+                  <div
+                    key={session.id}
+                    onClick={() => setSelectedSession(session)}
+                    className="bg-card rounded-2xl border border-border p-4 shadow-soft active:scale-[0.98] transition-transform cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Barre couleur */}
+                      <div
+                        className="w-1.5 h-12 rounded-full flex-shrink-0 mt-1"
+                        style={{ backgroundColor: session.cours?.couleur || "#3b82f6" }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="font-bold text-sm truncate min-w-0 flex-1">{session.cours?.titre}</h3>
+                          {enCours ? (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-green-500 px-2 py-0.5 rounded-full flex-shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                              En cours
+                            </span>
+                          ) : bientot ? (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex-shrink-0">Bientôt</span>
+                          ) : (
+                            <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-md flex-shrink-0">
+                              {session.heure_debut}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {session.heure_debut} — {session.heure_fin}
+                        </p>
+                        {session.professeur && (
+                          <div className="flex items-center gap-1.5 mt-2 min-w-0">
+                            <div className="w-5 h-5 rounded-full bg-gradient-ocean flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                              {session.professeur.prenoms?.[0] || session.professeur.nom[0]}
+                            </div>
+                            <span className="text-xs text-muted-foreground truncate min-w-0">
+                              {session.professeur.prenoms} {session.professeur.nom}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 self-center flex-shrink-0">
+                        <IconChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Indice discret de balayage */}
+        <p className="text-center text-[10px] text-muted-foreground/50 pt-1">← glissez pour changer de jour →</p>
+      </div>
+
+      {/* Vue desktop calendrier grille — positionnement précis au temps réel */}
+      <div key={weekStart.toISOString()} className="hidden lg:block bg-card rounded-2xl border border-border shadow-soft overflow-hidden animate-fade-in">
+        <div className="overflow-x-auto scrollbar-hide">
           <div className="min-w-[900px]">
-            <div className="grid grid-cols-8 border-b border-border">
+            <div className="grid grid-cols-8 border-b border-border sticky top-0 z-10 bg-card">
               <div className="p-3 text-xs font-semibold text-muted-foreground border-r border-border bg-muted/30 flex items-center justify-center">
                 Heure
               </div>
               {joursComplets.map((jour, i) => {
                 const jourDate = new Date(weekStart);
                 jourDate.setDate(jourDate.getDate() + i);
-                const isToday = new Date().toDateString() === jourDate.toDateString();
+                const isToday = isTodayDate(jourDate);
                 return (
-                  <div key={jour} className={`p-3 text-center border-r border-border last:border-r-0 ${isToday ? "bg-primary/5" : ""}`}>
+                  <div key={jour} className={`p-3 text-center border-r border-border last:border-r-0 transition-colors ${isToday ? "bg-primary/5" : ""}`}>
                     <div className={`text-xs font-semibold ${isToday ? "text-primary" : "text-muted-foreground"}`}>{jour}</div>
-                    <div className={`text-sm font-bold mt-0.5 ${isToday ? "text-primary" : "text-foreground"}`}>{jourDate.getDate()}</div>
+                    <div className={`text-sm font-bold mt-0.5 ${isToday ? "text-primary" : "text-foreground"} ${isToday ? "inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white" : ""}`}>
+                      {jourDate.getDate()}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="relative">
-              {heures.map((heure) => (
-                <div key={heure} className="grid grid-cols-8 border-b border-border/50 min-h-[60px]">
-                  <div className="p-2 text-xs text-muted-foreground border-r border-border bg-muted/20 flex items-center justify-center">
+            <div className="grid grid-cols-8 relative" style={{ height: HAUTEUR_GRILLE }}>
+              {/* Colonne des heures */}
+              <div className="relative border-r border-border bg-muted/20">
+                {heures.map((heure) => (
+                  <div
+                    key={heure}
+                    className="absolute left-0 right-0 flex items-start justify-center text-xs text-muted-foreground pt-1 border-t border-border/50 first:border-t-0"
+                    style={{ top: (heure - HEURE_DEBUT) * HAUTEUR_HEURE, height: HAUTEUR_HEURE }}
+                  >
                     {heure.toString().padStart(2, "0")}:00
                   </div>
-                  {joursComplets.map((_, jourIndex) => {
-                    const sessionsJour = sessionsParJour[jourIndex] || [];
-                    const sessionMatch = sessionsJour.find((s) => {
-                      const debut = parseInt(s.heure_debut.split(":")[0]);
-                      return debut === heure;
-                    });
+                ))}
+              </div>
 
-                    if (sessionMatch && sessionMatch.cours) {
-                      const dureeHeures = (() => {
-                        const [h1, m1] = sessionMatch.heure_debut.split(":").map(Number);
-                        const [h2, m2] = sessionMatch.heure_fin.split(":").map(Number);
-                        return Math.max(1, h2 - h1 + (m2 - m1) / 60);
-                      })();
+              {/* Colonnes des jours */}
+              {joursComplets.map((_, jourIndex) => {
+                const jourDate = new Date(weekStart);
+                jourDate.setDate(jourDate.getDate() + jourIndex);
+                const isToday = isTodayDate(jourDate);
+                const sessionsJour = (sessionsParJour[jourIndex] || []).filter((s) => s.cours);
+
+                return (
+                  <div key={jourIndex} className={`relative border-r border-border last:border-r-0 ${isToday ? "bg-primary/[0.03]" : ""}`}>
+                    {/* Lignes horaires */}
+                    {heures.map((heure) => (
+                      <div
+                        key={heure}
+                        className="absolute left-0 right-0 border-t border-border/50 first:border-t-0 hover:bg-muted/20 transition-colors"
+                        style={{ top: (heure - HEURE_DEBUT) * HAUTEUR_HEURE, height: HAUTEUR_HEURE }}
+                      />
+                    ))}
+
+                    {/* Ligne "maintenant" */}
+                    {isToday && nowOffsetPx !== null && (
+                      <div className="absolute left-0 right-0 z-20 flex items-center pointer-events-none" style={{ top: nowOffsetPx }}>
+                        <span className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
+                        <span className="flex-1 h-[2px] bg-red-500" />
+                      </div>
+                    )}
+
+                    {/* Sessions positionnées précisément */}
+                    {sessionsJour.map((session) => {
+                      const debutMin = minutesOf(session.heure_debut);
+                      const finMin = minutesOf(session.heure_fin);
+                      const top = ((debutMin - HEURE_DEBUT * 60) / 60) * HAUTEUR_HEURE;
+                      const height = Math.max(28, ((finMin - debutMin) / 60) * HAUTEUR_HEURE - 4);
 
                       return (
-                        <div key={jourIndex} className="p-1 border-r border-border/50 relative">
-                          <button
-                            onClick={() => setSelectedSession(sessionMatch)}
-                            className="w-full h-full rounded-xl p-2 text-left transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95 text-xs"
-                            style={{
-                              backgroundColor: sessionMatch.cours.couleur + "20",
-                              borderLeft: `3px solid ${sessionMatch.cours.couleur}`,
-                              minHeight: `${Math.max(50, dureeHeures * 55)}px`,
-                            }}
-                          >
-                            <div className="font-bold text-foreground leading-tight" style={{ color: sessionMatch.cours.couleur }}>
-                              {sessionMatch.cours.titre}
+                        <button
+                          key={session.id}
+                          onClick={() => setSelectedSession(session)}
+                          className="absolute left-1 right-1 rounded-xl px-2 py-1.5 text-left transition-all duration-150 hover:brightness-105 hover:shadow-md hover:z-10 active:scale-[0.98] text-xs overflow-hidden"
+                          style={{
+                            top,
+                            height,
+                            backgroundColor: session.cours!.couleur + "1f",
+                            borderLeft: `3px solid ${session.cours!.couleur}`,
+                          }}
+                        >
+                          <div className="font-bold leading-tight truncate" style={{ color: session.cours!.couleur }}>
+                            {session.cours!.titre}
+                          </div>
+                          <div className="text-muted-foreground mt-0.5 text-[10px] truncate">
+                            {session.heure_debut} — {session.heure_fin}
+                          </div>
+                          {height > 55 && session.professeur && (
+                            <div className="text-muted-foreground text-[10px] mt-0.5 truncate">
+                              {session.professeur.prenoms} {session.professeur.nom}
                             </div>
-                            <div className="text-muted-foreground mt-0.5 text-[10px]">
-                              {sessionMatch.heure_debut} — {sessionMatch.heure_fin}
-                            </div>
-                            {sessionMatch.professeur && (
-                              <div className="text-muted-foreground text-[10px] mt-0.5">
-                                {sessionMatch.professeur.prenoms} {sessionMatch.professeur.nom}
-                              </div>
-                            )}
-                          </button>
-                        </div>
+                          )}
+                        </button>
                       );
-                    }
-                    return <div key={jourIndex} className="p-1 border-r border-border/50 min-h-[60px] hover:bg-muted/20 transition-colors" />;
-                  })}
-                </div>
-              ))}
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -545,12 +722,12 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
           <div className="bg-card rounded-t-3xl sm:rounded-2xl border border-border shadow-2xl w-full sm:max-w-md sm:w-full animate-slide-up" onClick={(e) => e.stopPropagation()}>
             {/* Header coloré */}
             <div className="p-5 sm:p-6 text-white relative rounded-t-3xl sm:rounded-t-2xl" style={{ backgroundColor: selectedSession.cours?.couleur || "#3b82f6" }}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium opacity-80 mb-1">{joursComplets[new Date(selectedSession.date).getDay() === 0 ? 6 : new Date(selectedSession.date).getDay() - 1]}</div>
-                  <h3 className="font-display text-lg font-bold">{selectedSession.cours?.titre}</h3>
+                  <h3 className="font-display text-lg font-bold break-words">{selectedSession.cours?.titre}</h3>
                 </div>
-                <button onClick={() => setSelectedSession(null)} className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition">
+                <button onClick={() => setSelectedSession(null)} className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 active:scale-90 transition-all flex-shrink-0">
                   <IconX className="w-4 h-4 text-white" />
                 </button>
               </div>
@@ -617,6 +794,7 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
     </div>
   );
 }
+
 
 /* ─── TAB: MES COURS ─── */
 function CoursTab({ sessions, user }: { sessions: Session[]; user: User }) {
@@ -889,7 +1067,6 @@ function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ─── Chargement utilisateur ───
   async function loadUserData() {
@@ -1034,75 +1211,27 @@ function DashboardPage() {
         </div>
       </aside>
 
-      {/* ═══ SIDEBAR MOBILE OVERLAY ═══ */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-72 bg-card border-r border-border flex flex-col animate-slide-right">
-            <div className="p-5 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-ocean flex items-center justify-center text-white font-display font-bold">
-                  A
-                </div>
-                <span className="font-display font-bold text-lg">Amphix</span>
-              </div>
-              <button onClick={() => setSidebarOpen(false)} className="p-2 rounded-lg hover:bg-muted transition">
-                <IconX className="w-5 h-5" />
-              </button>
-            </div>
-
-            <nav className="flex-1 p-4 space-y-1">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.key;
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => { setActiveTab(tab.key); setSidebarOpen(false); }}
-                    className={[
-                      "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-md"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    ].join(" ")}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{tab.label}</span>
-                    {tab.badge && (
-                      <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-primary/10 text-primary"}`}>
-                        {tab.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-
-            <div className="p-4 border-t border-border">
-              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition">
-                <IconLogout className="w-5 h-5" />
-                Se déconnecter
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ═══ CONTENU PRINCIPAL ═══ */}
       <main className="flex-1 min-h-screen pb-24 lg:pb-0">
         {/* Header mobile */}
         <header className="lg:hidden sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="px-4 py-3 flex items-center justify-between">
-            <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 rounded-xl hover:bg-muted transition">
-              <IconMenu className="w-5 h-5" />
-            </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-ocean flex items-center justify-center text-white font-display font-bold text-sm">
                 A
               </div>
-              <span className="font-display font-bold text-sm">Amphix</span>
+              <div>
+                <span className="font-display font-bold text-sm block leading-tight">Amphix</span>
+                <span className="text-[10px] text-muted-foreground leading-tight">
+                  {activeTab === "calendrier" && "Mon emploi du temps"}
+                  {activeTab === "cours" && "Mes cours"}
+                  {activeTab === "parametres" && "Paramètres"}
+                </span>
+              </div>
             </div>
-            <div className="w-9" />
+            <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${user.paye ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+              {user.paye ? "✓ Payé" : "Non payé"}
+            </div>
           </div>
         </header>
 
