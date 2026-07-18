@@ -78,6 +78,154 @@
 }
 
 
+/* ═══════════════════════════════════════════════════
+   PWA & ANIMATIONS STYLES — Amphix Dashboard
+   ═══════════════════════════════════════════════════ */
+
+
+/* ─── Animations ─── */
+
+@keyframes slide-up {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slide-down {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slide-right {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+}
+
+.animate-slide-down {
+    animation: slide-down 0.3s ease-out;
+}
+
+.animate-slide-right {
+    animation: slide-right 0.3s ease-out;
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+}
+
+
+/* ─── Scrollbar hide ─── */
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+
+/* ─── Safe area pour iPhone notch / home indicator ─── */
+
+.safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-pt {
+    padding-top: env(safe-area-inset-top, 0px);
+}
+
+
+/* ─── PWA standalone mode ─── */
+
+@media (display-mode: standalone) {
+    .safe-area-pb {
+        padding-bottom: max(env(safe-area-inset-bottom), 20px);
+    }
+    /* Header plus grand en PWA pour le notch */
+    .pwa-header {
+        padding-top: env(safe-area-inset-top, 20px);
+    }
+}
+
+
+/* ─── Touch improvements ─── */
+
+@media (hover: none) and (pointer: coarse) {
+    /* Supprime le hover sticky sur mobile */
+    button:active {
+        transform: scale(0.96);
+    }
+    /* Zone tactile minimale 44px */
+    .touch-target {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+
+/* ─── Prevent text selection on interactive elements ─── */
+
+button,
+a,
+[role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+
+/* ─── Overscroll behavior ─── */
+
+body {
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+
+/* ─── Status bar color for PWA ─── */
+
+@supports (padding-top: env(safe-area-inset-top)) {
+    .status-bar-bg {
+        height: env(safe-area-inset-top);
+        background: inherit;
+    }
+}
+
+
 /* Animations (une seule définition propre) */
 
 @keyframes fade-in {
