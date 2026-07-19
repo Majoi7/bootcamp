@@ -638,7 +638,7 @@ async function hashPassword(password: string): Promise<string> {
     <input
       id="whatsapp"
       type="tel"
-      placeholder="01 46 24 45 49"
+      placeholder="46 24 45 49"
       {...registerInfos("whatsapp")}
       className="flex-1 bg-transparent text-sm px-3 py-3 outline-none placeholder:text-muted-foreground/50"
     />

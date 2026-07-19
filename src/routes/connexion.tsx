@@ -146,7 +146,7 @@ window.location.href = "/dashboard";
               <input
                 id="whatsapp"
                 type="tel"
-                placeholder="01 46 24 45 49"
+                placeholder=" 46 24 45 49"
                 {...register("whatsapp")}
                 className="flex-1 bg-transparent text-sm px-3 py-3 outline-none placeholder:text-muted-foreground/50"
               />
