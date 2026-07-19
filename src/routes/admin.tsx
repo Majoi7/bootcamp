@@ -56,7 +56,20 @@ interface Session {
   professeur?: Professeur;
 }
 
-type AdminTab = "dashboard" | "participants" | "cours" | "professeurs" | "programme" | "calendrier";
+interface Enregistrement {
+  id: string;
+  cours_id: string | null;
+  professeur_id: string | null;
+  titre: string;
+  lien: string;
+  date: string;
+  description: string | null;
+  created_at: string;
+  cours?: Cours;
+  professeur?: Professeur;
+}
+
+type AdminTab = "dashboard" | "participants" | "cours" | "professeurs" | "programme" | "calendrier" | "enregistrements";
 
 /* ─── Icônes SVG (style Lucide) ─── */
 const Icons = {
@@ -208,7 +221,40 @@ const Icons = {
       <polyline points="20 6 9 17 4 12"/>
     </svg>
   ),
+  video: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <polygon points="23 7 16 12 23 17 23 7"/>
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+    </svg>
+  ),
+  externalLink: (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+      <polyline points="15 3 21 3 21 9"/>
+      <line x1="10" y1="14" x2="21" y2="3"/>
+    </svg>
+  ),
+  trash: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    </svg>
+  ),
+  key: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+    </svg>
+  ),
 };
+
+/* ─── Hash de mot de passe (identique à connexion.tsx) ─── */
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + "amphix-salt-2026");
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const arr = Array.from(new Uint8Array(hashBuffer));
+  return arr.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 /* ─── Composant Admin ─── */
 function AdminDashboard() {
@@ -217,6 +263,7 @@ function AdminDashboard() {
   const [cours, setCours] = useState<Cours[]>([]);
   const [professeurs, setProfesseurs] = useState<Professeur[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [enregistrements, setEnregistrements] = useState<Enregistrement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadAllData(); }, []);
@@ -228,6 +275,7 @@ function AdminDashboard() {
       fetchCours(),
       fetchProfesseurs(),
       fetchSessions(),
+      fetchEnregistrements(),
     ]);
     setLoading(false);
   };
@@ -259,6 +307,14 @@ function AdminDashboard() {
     if (!error) setSessions(data || []);
   };
 
+  const fetchEnregistrements = async () => {
+    const { data, error } = await supabase
+      .from("enregistrements")
+      .select("*, cours:cours_id(*), professeur:professeur_id(*)")
+      .order("date", { ascending: false });
+    if (!error) setEnregistrements(data || []);
+  };
+
   const stats = useMemo(() => {
     const totalParticipants = participants.length;
     const totalPayes = participants.filter((p) => p.paye).length;
@@ -281,6 +337,7 @@ function AdminDashboard() {
     { key: "professeurs", label: "Professeurs", icon: Icons.teacher },
     { key: "programme", label: "Programmer", icon: Icons.plus },
     { key: "calendrier", label: "Calendrier", icon: Icons.calendar },
+    { key: "enregistrements", label: "Enregistrements", icon: Icons.video },
   ];
 
   const kpiData = [
@@ -671,6 +728,11 @@ function AdminDashboard() {
             <CalendrierAdminTab sessions={sessions} cours={cours} professeurs={professeurs} onRefresh={fetchSessions} />
           </section>
         )}
+        {activeTab === "enregistrements" && (
+          <section className="px-7 py-6 pb-20 max-w-6xl">
+            <EnregistrementsTab enregistrements={enregistrements} cours={cours} professeurs={professeurs} onRefresh={fetchEnregistrements} />
+          </section>
+        )}
 
     
       </main>
@@ -686,6 +748,49 @@ function ParticipantsTab({ participants, onRefresh }: { participants: Participan
   const [filterNiveau, setFilterNiveau] = useState<"" | "Collège" | "Lycée" | "Licence">("");
   const [filterPaye, setFilterPaye] = useState<"" | "paye" | "non_paye">("");
   const [sortBy, setSortBy] = useState<"date" | "nom" | "montant">("date");
+
+  const [resetTarget, setResetTarget] = useState<Participant | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState(false);
+
+  const openReset = (p: Participant) => {
+    setResetTarget(p);
+    setNewPassword("");
+    setResetError("");
+    setResetSuccess(false);
+  };
+
+  const closeReset = () => setResetTarget(null);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetTarget) return;
+    setResetError("");
+
+    if (newPassword.length < 6) {
+      setResetError("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    setResetLoading(true);
+    const hash = await hashPassword(newPassword);
+    const { error } = await supabase
+      .from("participants")
+      .update({ password_hash: hash })
+      .eq("id", resetTarget.id);
+    setResetLoading(false);
+
+    if (error) {
+      setResetError("Une erreur est survenue lors de la mise à jour.");
+      return;
+    }
+
+    setResetSuccess(true);
+    setTimeout(() => setResetTarget(null), 1200);
+  };
 
   const togglePaye = async (id: string, current: boolean) => {
     const montant = current ? 0 : 5000;
@@ -830,14 +935,23 @@ function ParticipantsTab({ participants, onRefresh }: { participants: Participan
                     </td>
                     <td className="px-6 py-4 text-right font-mono font-semibold">{p.montant_paye.toLocaleString("fr-FR")} FCFA</td>
                     <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => togglePaye(p.id, p.paye)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
-                          p.paye ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                        }`}
-                      >
-                        {p.paye ? "Marquer non payé" : "Marquer payé"}
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => togglePaye(p.id, p.paye)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
+                            p.paye ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                          }`}
+                        >
+                          {p.paye ? "Marquer non payé" : "Marquer payé"}
+                        </button>
+                        <button
+                          onClick={() => openReset(p)}
+                          title="Réinitialiser le mot de passe"
+                          className="rounded-lg p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95"
+                        >
+                          {Icons.key}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -849,6 +963,80 @@ function ParticipantsTab({ participants, onRefresh }: { participants: Participan
       <div className="text-sm text-slate-400 text-center">
         {filtered.length} participant{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""} sur {participants.length} au total
       </div>
+
+      {/* ── MODAL : RÉINITIALISER LE MOT DE PASSE ── */}
+      {resetTarget && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={closeReset}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-lg font-extrabold text-slate-900">Réinitialiser le mot de passe</h3>
+              <button
+                onClick={closeReset}
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-5">
+              Pour <span className="font-semibold text-slate-700">{resetTarget.prenoms} {resetTarget.nom}</span> ({resetTarget.whatsapp})
+            </p>
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              {resetError && (
+                <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3">
+                  {resetError}
+                </div>
+              )}
+              {resetSuccess && (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm px-4 py-3 flex items-center gap-2">
+                  {Icons.checkCircle}
+                  Mot de passe mis à jour.
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Nouveau mot de passe</label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Au moins 6 caractères"
+                    autoFocus
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-11 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                    tabIndex={-1}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      {showNewPassword
+                        ? <><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.86 21.86 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.86 21.86 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>
+                        : <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>}
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={resetLoading}
+                className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-4 py-3 font-semibold text-sm hover:brightness-110 transition active:scale-95 disabled:opacity-60"
+              >
+                {resetLoading ? "..." : "Réinitialiser"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1565,6 +1753,325 @@ function CalendrierAdminTab({ sessions, cours, professeurs, onRefresh }: {
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB: ENREGISTREMENTS (liens Google Meet des cours enregistrés)
+   ═══════════════════════════════════════════════════ */
+function EnregistrementsTab({
+  enregistrements,
+  cours,
+  professeurs,
+  onRefresh,
+}: {
+  enregistrements: Enregistrement[];
+  cours: Cours[];
+  professeurs: Professeur[];
+  onRefresh: () => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [titre, setTitre] = useState("");
+  const [lien, setLien] = useState("");
+  const [coursId, setCoursId] = useState("");
+  const [professeurId, setProfesseurId] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [filterCours, setFilterCours] = useState("");
+
+  const resetForm = () => {
+    setTitre("");
+    setLien("");
+    setCoursId("");
+    setProfesseurId("");
+    setDate(new Date().toISOString().split("T")[0]);
+    setDescription("");
+    setEditingId(null);
+    setShowForm(false);
+    setError(null);
+  };
+
+  const isValidUrl = (value: string) => {
+    try {
+      const u = new URL(value);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!titre.trim()) return;
+    if (!isValidUrl(lien.trim())) {
+      setError("Le lien de l'enregistrement doit être une URL valide (ex: https://drive.google.com/...).");
+      return;
+    }
+    setLoading(true);
+
+    const payload = {
+      titre: titre.trim(),
+      lien: lien.trim(),
+      cours_id: coursId || null,
+      professeur_id: professeurId || null,
+      date,
+      description: description.trim() || null,
+    };
+
+    if (editingId) {
+      const { error: err } = await supabase
+        .from("enregistrements")
+        .update(payload)
+        .eq("id", editingId);
+      if (!err) { resetForm(); onRefresh(); } else setError(err.message);
+    } else {
+      const { error: err } = await supabase
+        .from("enregistrements")
+        .insert(payload);
+      if (!err) { resetForm(); onRefresh(); } else setError(err.message);
+    }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Supprimer cet enregistrement ? Cette action est définitive.")) return;
+    const { error: err } = await supabase.from("enregistrements").delete().eq("id", id);
+    if (!err) onRefresh();
+  };
+
+  const startEdit = (rec: Enregistrement) => {
+    setTitre(rec.titre);
+    setLien(rec.lien);
+    setCoursId(rec.cours_id || "");
+    setProfesseurId(rec.professeur_id || "");
+    setDate(rec.date);
+    setDescription(rec.description || "");
+    setEditingId(rec.id);
+    setShowForm(true);
+    setError(null);
+  };
+
+  const filtered = useMemo(() => {
+    return enregistrements.filter((rec) => {
+      const matchSearch = !search.trim() || rec.titre.toLowerCase().includes(search.trim().toLowerCase());
+      const matchCours = !filterCours || rec.cours_id === filterCours;
+      return matchSearch && matchCours;
+    });
+  }, [enregistrements, search, filterCours]);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight">Enregistrements Google Meet</h2>
+          <p className="text-sm text-slate-500 mt-1">Centralisez les liens des sessions enregistrées pour que les participants puissent les revoir.</p>
+        </div>
+        <button
+          onClick={() => { resetForm(); setShowForm(!showForm); }}
+          className="rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-5 py-2.5 text-sm font-semibold hover:brightness-110 transition hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/25 flex-shrink-0"
+        >
+          {showForm ? "Annuler" : "Ajouter un enregistrement"}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 animate-fade-in">
+          {error && (
+            <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3">
+              {error}
+            </div>
+          )}
+          <div>
+            <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Titre de l'enregistrement *</label>
+            <input
+              type="text"
+              value={titre}
+              onChange={(e) => setTitre(e.target.value)}
+              placeholder="Ex: Session 3 — Introduction aux boucles"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Lien Google Meet / Drive *</label>
+            <input
+              type="url"
+              value={lien}
+              onChange={(e) => setLien(e.target.value)}
+              placeholder="https://drive.google.com/file/d/..."
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+              required
+            />
+            <p className="text-xs text-slate-400 mt-1.5">
+              Astuce : dans Google Meet, les enregistrements sont automatiquement sauvegardés dans Google Drive (dossier "Meet Recordings"). Ouvrez le fichier et copiez son lien de partage ici.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Cours lié</label>
+              <select
+                value={coursId}
+                onChange={(e) => setCoursId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+              >
+                <option value="">— Aucun —</option>
+                {cours.map((c) => (
+                  <option key={c.id} value={c.id}>{c.titre}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Professeur</label>
+              <select
+                value={professeurId}
+                onChange={(e) => setProfesseurId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+              >
+                <option value="">— Aucun —</option>
+                {professeurs.map((p) => (
+                  <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Date de la session</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full sm:w-56 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Notes (optionnel)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ex: à partir de 12min, problème de son au début..."
+              rows={3}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 resize-none"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-4 py-3 font-semibold text-sm hover:brightness-110 transition active:scale-95 disabled:opacity-60"
+            >
+              {loading ? "..." : editingId ? "Modifier" : "Enregistrer le lien"}
+            </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded-xl bg-slate-100 text-slate-700 px-4 py-3 font-semibold text-sm hover:bg-slate-200 transition"
+              >
+                Annuler
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+
+      {/* Recherche + filtre */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">{Icons.search}</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un enregistrement..."
+            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+        <select
+          value={filterCours}
+          onChange={(e) => setFilterCours(e.target.value)}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+        >
+          <option value="">Tous les cours</option>
+          {cours.map((c) => (
+            <option key={c.id} value={c.id}>{c.titre}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Liste des enregistrements */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((rec) => (
+          <div key={rec.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex flex-col">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: (rec.cours?.couleur || "#6366f1") + "1a", color: rec.cours?.couleur || "#6366f1" }}
+                >
+                  {Icons.video}
+                </div>
+                {rec.cours && (
+                  <span
+                    className="text-[11px] font-semibold px-2 py-1 rounded-full"
+                    style={{ backgroundColor: (rec.cours.couleur || "#6366f1") + "1a", color: rec.cours.couleur || "#6366f1" }}
+                  >
+                    {rec.cours.titre}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => startEdit(rec)} className="p-1.5 rounded-lg hover:bg-slate-100 transition text-slate-400 hover:text-indigo-500">
+                  {Icons.editBtn}
+                </button>
+                <button onClick={() => handleDelete(rec.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition text-slate-400 hover:text-red-500">
+                  {Icons.trash}
+                </button>
+              </div>
+            </div>
+
+            <h3 className="font-bold text-[15px] mb-1 leading-snug">{rec.titre}</h3>
+
+            <div className="text-xs text-slate-500 space-y-0.5 mb-3">
+              <div>{new Date(rec.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</div>
+              {rec.professeur && <div>Par {rec.professeur.prenoms} {rec.professeur.nom}</div>}
+            </div>
+
+            {rec.description && (
+              <p className="text-sm text-slate-500 line-clamp-2 mb-3">{rec.description}</p>
+            )}
+
+            <a
+              href={rec.lien}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-800 transition active:scale-95"
+            >
+              Voir l'enregistrement
+              {Icons.externalLink}
+            </a>
+          </div>
+        ))}
+      </div>
+
+      {filtered.length === 0 && enregistrements.length > 0 && (
+        <p className="text-center text-slate-400 py-12">Aucun résultat pour cette recherche.</p>
+      )}
+      {enregistrements.length === 0 && (
+        <div className="text-center py-16">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-3">
+            {Icons.video}
+          </div>
+          <p className="text-slate-500 font-medium">Aucun enregistrement pour le moment</p>
+          <p className="text-sm text-slate-400 mt-1">Ajoutez le lien de votre premier cours enregistré sur Google Meet.</p>
         </div>
       )}
     </div>

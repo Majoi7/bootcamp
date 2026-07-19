@@ -59,6 +59,18 @@ interface Session {
   professeur?: Professeur;
 }
 
+interface Enregistrement {
+  id: string;
+  cours_id: string | null;
+  professeur_id: string | null;
+  titre: string;
+  lien: string;
+  date: string;
+  description: string | null;
+  cours?: Cours;
+  professeur?: Professeur;
+}
+
 type DashboardTab = "calendrier" | "cours" | "parametres";
 
 /* ─── Icônes SVG professionnelles ─── */
@@ -163,19 +175,38 @@ function IconLogout({ className = "w-6 h-6" }: { className?: string }) {
   );
 }
 
+function IconLock({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function IconEye({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function IconEyeOff({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.86 21.86 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.86 21.86 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
 function IconX({ className = "w-6 h-6" }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function IconCheck({ className = "w-6 h-6" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
@@ -866,129 +897,277 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
 }
 
 
-/* ─── TAB: MES COURS ─── */
-function CoursTab({ sessions, user }: { sessions: Session[]; user: User }) {
-  const coursFuturs = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return sessions
-      .filter((s) => s.date >= today)
-      .sort((a, b) => {
-        const dateA = new Date(a.date + "T" + a.heure_debut);
-        const dateB = new Date(b.date + "T" + b.heure_debut);
-        return dateA.getTime() - dateB.getTime();
-      });
-  }, [sessions]);
+/* ─── TAB: MES COURS (enregistrements Google Meet) ─── */
+function CoursTab({ enregistrements }: { enregistrements: Enregistrement[] }) {
+  const [search, setSearch] = useState("");
 
-  const coursPasses = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return sessions
-      .filter((s) => s.date < today)
-      .sort((a, b) => {
-        const dateA = new Date(a.date + "T" + a.heure_debut);
-        const dateB = new Date(b.date + "T" + b.heure_debut);
-        return dateB.getTime() - dateA.getTime();
-      });
-  }, [sessions]);
-
-  const [showPasses, setShowPasses] = useState(false);
+  const filtres = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return enregistrements;
+    return enregistrements.filter(
+      (rec) => rec.titre.toLowerCase().includes(q) || rec.cours?.titre.toLowerCase().includes(q) || rec.professeur?.nom.toLowerCase().includes(q)
+    );
+  }, [enregistrements, search]);
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
         <h2 className="font-display text-xl font-bold">Mes cours</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">{coursFuturs.length} cours à venir</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {enregistrements.length} enregistrement{enregistrements.length > 1 ? "s" : ""} disponible{enregistrements.length > 1 ? "s" : ""}
+        </p>
       </div>
 
-      {/* Cours à venir */}
-      <div className="space-y-3">
-        {coursFuturs.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
-              <IconBook className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground">Aucun cours programmé</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Revenez bientôt !</p>
+      {enregistrements.length > 0 && (
+        <div className="relative">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un cours enregistré..."
+            className="w-full rounded-xl border border-border bg-card pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition"
+          />
+        </div>
+      )}
+
+      {filtres.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
+            <IconVideo className="w-8 h-8 text-muted-foreground" />
           </div>
-        ) : (
-          coursFuturs.map((session) => {
-            const dateObj = new Date(session.date);
-            const isToday = session.date === new Date().toISOString().split("T")[0];
+          <p className="text-sm text-muted-foreground">
+            {enregistrements.length === 0 ? "Aucun cours enregistré pour l'instant" : "Aucun résultat pour cette recherche"}
+          </p>
+          <p className="text-xs text-muted-foreground/60 mt-1">
+            {enregistrements.length === 0 ? "Les replays de vos sessions apparaîtront ici." : "Essayez un autre mot-clé."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {filtres.map((rec) => {
+            const couleur = rec.cours?.couleur || "#3b82f6";
             return (
-              <div key={session.id} className="bg-card rounded-2xl border border-border p-4 shadow-soft">
+              <a
+                key={rec.id}
+                href={rec.lien}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group bg-card rounded-2xl border border-border p-4 shadow-soft active:scale-[0.98] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              >
                 <div className="flex items-start gap-3">
+                  {/* Vignette vidéo */}
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: (session.cours?.couleur || "#3b82f6") + "20" }}
+                    className="relative w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                    style={{ backgroundColor: couleur + "20" }}
                   >
-                    <IconBook className="w-6 h-6" style={{ color: session.cours?.couleur || "#3b82f6" }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-sm truncate">{session.cours?.titre}</h3>
-                      {isToday && (
-                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold">Aujourd'hui</span>
-                      )}
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-transform group-hover:scale-110"
+                      style={{ backgroundColor: couleur }}
+                    >
+                      <svg className="w-4 h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <polygon points="6 4 20 12 6 20 6 4" />
+                      </svg>
                     </div>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    {rec.cours && (
+                      <span
+                        className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1"
+                        style={{ backgroundColor: couleur + "1a", color: couleur }}
+                      >
+                        {rec.cours.titre}
+                      </span>
+                    )}
+                    <h3 className="font-bold text-sm leading-snug truncate">{rec.titre}</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {dateObj.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                      {new Date(rec.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {session.heure_debut} — {session.heure_fin}
-                    </p>
-                    {session.professeur && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Par {session.professeur.prenoms} {session.professeur.nom}
-                      </p>
+                    {rec.professeur && (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <div className="w-5 h-5 rounded-full bg-gradient-ocean flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                          {rec.professeur.prenoms?.[0] || rec.professeur.nom[0]}
+                        </div>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {rec.professeur.prenoms} {rec.professeur.nom}
+                        </span>
+                      </div>
                     )}
                   </div>
-                  {session.salle && (
-                    <a
-                      href={session.salle}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0 p-2.5 rounded-xl transition active:scale-95"
-                      style={{ backgroundColor: (session.cours?.couleur || "#3b82f6") + "15" }}
-                    >
-                      <IconVideo className="w-5 h-5" style={{ color: session.cours?.couleur || "#3b82f6" }} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
 
-      {/* Cours passés */}
-      {coursPasses.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowPasses(!showPasses)}
-            className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
-          >
-            <span>{showPasses ? "▼" : "▶"}</span>
-            Cours passés ({coursPasses.length})
-          </button>
-          {showPasses && (
-            <div className="space-y-2 mt-3">
-              {coursPasses.map((session) => (
-                <div key={session.id} className="bg-muted/30 rounded-xl border border-border/50 p-3 opacity-60">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                      <IconCheck className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium">{session.cours?.titre}</h4>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(session.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} · {session.heure_debut}
-                      </p>
-                    </div>
-                  </div>
+                  <IconChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 self-center" />
                 </div>
-              ))}
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Hash de mot de passe (identique à connexion.tsx) ─── */
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + "amphix-salt-2026");
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const arr = Array.from(new Uint8Array(hashBuffer));
+  return arr.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* ─── Carte : changer de mot de passe ─── */
+function ChangePasswordCard({ user }: { user: User }) {
+  const [open, setOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const NUMERO_SUPPORT = "22946244549";
+  const lienMotDePasseOublie = `https://wa.me/${NUMERO_SUPPORT}?text=${encodeURIComponent("Bonjour, j'ai oublié mon mot de passe.")}`;
+
+  const resetFields = () => {
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+  };
+
+  const toggleOpen = () => {
+    if (open) resetFields();
+    setSuccess(false);
+    setOpen(!open);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!newPassword || !confirmPassword) {
+      setError("Veuillez remplir tous les champs.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError("Le nouveau mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Les deux mots de passe ne correspondent pas.");
+      return;
+    }
+
+    setLoading(true);
+
+    const newHash = await hashPassword(newPassword);
+    const { error: updateError } = await supabase
+      .from("participants")
+      .update({ password_hash: newHash })
+      .eq("id", user.id);
+
+    setLoading(false);
+
+    if (updateError) {
+      setError("Une erreur est survenue lors de la mise à jour. Réessayez.");
+      return;
+    }
+
+    resetFields();
+    setSuccess(true);
+    setTimeout(() => {
+      setSuccess(false);
+      setOpen(false);
+    }, 2000);
+  };
+
+  return (
+    <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
+      <button
+        onClick={toggleOpen}
+        className="w-full flex items-center gap-3 p-5 hover:bg-muted/40 transition text-left"
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <IconLock className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-sm">Changer le mot de passe</h3>
+          <p className="text-xs text-muted-foreground">Sécurisez l'accès à votre compte</p>
+        </div>
+        <IconChevronRight className={`w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+
+      {open && (
+        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4 animate-fade-in border-t border-border pt-4">
+          {error && (
+            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-xs text-red-600">
+              {error}
             </div>
           )}
-        </div>
+          {success && (
+            <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-xs text-green-700 flex items-center gap-2">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Mot de passe mis à jour avec succès.
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Nouveau mot de passe</label>
+            <div className="relative">
+              <input
+                type={showNew ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Au moins 6 caractères"
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 pr-11 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(!showNew)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                tabIndex={-1}
+              >
+                {showNew ? <IconEyeOff className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Confirmer le nouveau mot de passe</label>
+            <input
+              type={showNew ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/50"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-gradient-ocean text-primary-foreground px-4 py-3 font-bold text-sm shadow-md hover:brightness-105 transition active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? "Mise à jour..." : "Mettre à jour le mot de passe"}
+          </button>
+
+          <a
+            href={lienMotDePasseOublie}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary transition pt-1"
+          >
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347M12.04 21.785h-.005a9.87 9.87 0 01-5.031-1.378l-.36-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.83 9.83 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884M20.52 3.449C18.24 1.245 15.187 0 11.936 0 5.65 0 .48 5.44.472 12.13a12.02 12.02 0 001.611 6.011L.312 24l6.007-1.579a12.13 12.13 0 005.617 1.418h.005c6.256 0 11.398-5.44 11.4-12.13 0-3.24-1.263-6.293-3.55-8.596" />
+            </svg>
+            Mot de passe oublié ?
+          </a>
+        </form>
       )}
     </div>
   );
@@ -1056,6 +1235,9 @@ function ParametresTab({ user, onLogout }: { user: User; onLogout: () => void })
           ))}
         </div>
       </div>
+
+      {/* Sécurité */}
+      <ChangePasswordCard user={user} />
 
        {/* ─── INSTALLER LE PWA ─── */}
       {canInstall && (
@@ -1136,6 +1318,7 @@ function DashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("calendrier");
   const [user, setUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [enregistrements, setEnregistrements] = useState<Enregistrement[]>([]);
   const [loading, setLoading] = useState(true);
 
   // ─── Chargement utilisateur ───
@@ -1175,12 +1358,23 @@ function DashboardPage() {
     if (!error && data) setSessions(data);
   }
 
+  // ─── Chargement des cours enregistrés (replay Google Meet) ───
+  async function loadEnregistrements() {
+    const { data, error } = await supabase
+      .from("enregistrements")
+      .select("*, cours:cours_id(*), professeur:professeur_id(*)")
+      .order("date", { ascending: false });
+
+    if (!error && data) setEnregistrements(data);
+  }
+
   // ─── Initialisation ───
   useEffect(() => {
     async function init() {
       setLoading(true);
       await loadUserData();
       await loadSessions();
+      await loadEnregistrements();
       setLoading(false);
     }
     init();
@@ -1215,7 +1409,7 @@ function DashboardPage() {
 
   const tabs = [
     { key: "calendrier" as DashboardTab, icon: IconCalendar, label: "Calendrier", badge: stats.cetteSemaine > 0 ? stats.cetteSemaine : undefined },
-    { key: "cours" as DashboardTab, icon: IconBook, label: "Cours", badge: stats.aVenir > 0 ? stats.aVenir : undefined },
+    { key: "cours" as DashboardTab, icon: IconBook, label: "Cours", badge: enregistrements.length > 0 ? enregistrements.length : undefined },
     { key: "parametres" as DashboardTab, icon: IconSettings, label: "Paramètres" },
   ];
 
@@ -1324,7 +1518,7 @@ function DashboardPage() {
 
         <div className="px-4 py-5 lg:px-8 lg:py-6 max-w-5xl">
           {activeTab === "calendrier" && <CalendrierTab sessions={sessions} user={user} />}
-          {activeTab === "cours" && <CoursTab sessions={sessions} user={user} />}
+          {activeTab === "cours" && <CoursTab enregistrements={enregistrements} />}
           {activeTab === "parametres" && <ParametresTab user={user} onLogout={handleLogout} />}
         </div>
       </main>

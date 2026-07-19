@@ -211,7 +211,8 @@ a,
 /* ─── Overscroll behavior ─── */
 
 body {
-    overscroll-behavior-y: none;
+    overflow-y: auto;
+    min-height: 100vh;
     -webkit-overflow-scrolling: touch;
 }
 
