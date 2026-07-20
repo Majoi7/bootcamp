@@ -67,36 +67,64 @@ function ConnexionPage() {
   });
 
   async function onSubmit(data: FormData) {
-    setServerError("");
+  setServerError("");
 
-    const phone = formatWhatsApp(data.whatsapp, selectedIndicatif.indicatif);
-    const passwordHash = await hashPassword(data.password);
+  // 1. Nettoyer la saisie (espaces, tirets, "+" éventuel)
+  const raw = data.whatsapp.replace(/[\s\-]/g, "").replace(/^\+/, "");
+  const indicatif = selectedIndicatif.indicatif; // "+229"
 
-    const { data: participant, error } = await supabase
-      .from("participants")
-      .select("id, nom, prenoms, whatsapp, niveau_etudes")
-      .eq("whatsapp", phone)
-      .eq("password_hash", passwordHash)
-      .single();
-
-    if (error || !participant) {
-      setServerError("Numéro ou mot de passe incorrect.");
-      return;
-    }
-
-    localStorage.setItem(
-      "amphix_session",
-      JSON.stringify({
-        id: participant.id,
-        nom: participant.nom,
-        prenoms: participant.prenoms,
-        whatsapp: participant.whatsapp,
-      })
-    );
-
-window.location.href = "/dashboard";
+  // 2. Extraire la partie locale (sans l'indicatif si déjà présent)
+  let local = raw;
+  const indicatifSansPlus = indicatif.replace(/^\+/, ""); // "229"
+  if (raw.startsWith(indicatifSansPlus)) {
+    local = raw.slice(indicatifSansPlus.length);
   }
 
+  // 3. Construire toutes les variantes possibles (avec et sans zéro initial)
+  const variants: string[] = [];
+  variants.push(indicatif + local); // ex: "+2290146244549"
+  const localSansZero = local.replace(/^0+/, "");
+  if (localSansZero !== local) {
+    variants.push(indicatif + localSansZero); // ex: "+229146244549"
+  }
+  // Si l'utilisateur a tapé le numéro sans indicatif mais avec le zéro,
+  // on a déjà les deux variantes. Sinon, si l'utilisateur a tapé sans zéro,
+  // on aura seulement "+229146244549" (pas de doublon).
+  // On dédoublonne au cas où
+  const uniqueVariants = Array.from(new Set(variants));
+
+  // 4. Hash du mot de passe
+  const passwordHash = await hashPassword(data.password);
+
+  // 5. Requête avec IN sur toutes les variantes
+  const { data: results, error } = await supabase
+    .from("participants")
+    .select("id, nom, prenoms, whatsapp, niveau_etudes")
+    .in("whatsapp", uniqueVariants)
+    .eq("password_hash", passwordHash)
+    .limit(1); // on ne prend qu'un résultat
+
+  const participant = results?.[0] || null;
+
+  if (error || !participant) {
+    console.log("Variantes testées :", uniqueVariants);
+    setServerError("Numéro ou mot de passe incorrect.");
+    return;
+  }
+
+  // 6. Connexion réussie
+  localStorage.setItem(
+    "amphix_session",
+    JSON.stringify({
+      id: participant.id,
+      nom: participant.nom,
+      prenoms: participant.prenoms,
+      whatsapp: participant.whatsapp,
+    })
+  );
+
+  window.location.href = "/dashboard";
+}
   return (
     <main className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-md w-full rounded-3xl bg-card border border-border shadow-soft p-8 md:p-12">
@@ -181,12 +209,7 @@ window.location.href = "/dashboard";
           </button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Pas encore inscrit ?{" "}
-          <Link to="/inscription" className="text-primary font-semibold hover:underline">
-            S'inscrire
-          </Link>
-        </p>
+       
       </div>
     </main>
   );

@@ -260,33 +260,6 @@ function PWAInstallPrompt() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-  if (isIOS && isSafari && !deferredPrompt) {
-    return (
-      <div className="fixed bottom-20 left-4 right-4 z-[60] bg-card border border-border rounded-2xl shadow-2xl p-4 animate-slide-up">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold">Installer Amphix sur iPhone</p>
-            <ol className="text-xs text-muted-foreground mt-1 space-y-1 list-decimal list-inside">
-              <li>Appuyez sur <span className="font-bold">Partager</span> en bas</li>
-              <li>Faites défiler et tapez <span className="font-bold">"Sur l'écran d'accueil"</span></li>
-              <li>Confirmez avec <span className="font-bold">"Ajouter"</span></li>
-            </ol>
-            <button 
-              onClick={() => setShowPrompt(false)} 
-              className="mt-2 text-xs font-semibold text-primary"
-            >
-              J'ai compris
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Si pas de prompt disponible et pas iOS, ne montre rien
   if (!showPrompt && !deferredPrompt) return null;
