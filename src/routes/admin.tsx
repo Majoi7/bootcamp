@@ -23,6 +23,7 @@ interface Participant {
   niveau_etudes: "Collège" | "Lycée" | "Licence";
   paye: boolean;
   montant_paye: number;
+  date_paiement: string | null;
 }
 
 interface Cours {
@@ -315,9 +316,12 @@ function AdminDashboard() {
     if (!error) setEnregistrements(data || []);
   };
 
+  const [periode, setPeriode] = useState<"jour" | "semaine" | "mois" | "annee">("jour");
+
   const stats = useMemo(() => {
     const totalParticipants = participants.length;
     const totalPayes = participants.filter((p) => p.paye).length;
+    const totalNonPayes = totalParticipants - totalPayes;
     const totalFCFA = participants.reduce((sum, p) => sum + p.montant_paye, 0);
     const totalCours = cours.length;
     const totalSessions = sessions.length;
@@ -327,8 +331,42 @@ function AdminDashboard() {
       const diff = Math.ceil((sessionDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return diff >= 0 && diff <= 7;
     }).length;
-    return { totalParticipants, totalPayes, totalFCFA, totalCours, totalSessions, sessionsCetteSemaine };
+    return { totalParticipants, totalPayes, totalNonPayes, totalFCFA, totalCours, totalSessions, sessionsCetteSemaine };
   }, [participants, cours, sessions]);
+
+  // ── Progression réelle : semaine en cours vs semaine précédente ──
+  const startOfWeek = (d: Date) => {
+    const nd = new Date(d);
+    const day = nd.getDay();
+    nd.setDate(nd.getDate() - day + (day === 0 ? -6 : 1));
+    nd.setHours(0, 0, 0, 0);
+    return nd;
+  };
+
+  const progression = useMemo(() => {
+    const now = new Date();
+    const debutSemaine = startOfWeek(now);
+    const debutSemaineDerniere = new Date(debutSemaine);
+    debutSemaineDerniere.setDate(debutSemaineDerniere.getDate() - 7);
+
+    const inscritsCetteSemaine = participants.filter((p) => new Date(p.created_at) >= debutSemaine).length;
+    const inscritsSemaineDerniere = participants.filter((p) => {
+      const d = new Date(p.created_at);
+      return d >= debutSemaineDerniere && d < debutSemaine;
+    }).length;
+
+    const dateEncaissement = (p: Participant) => (p.date_paiement || p.created_at);
+    const fcfaCetteSemaine = participants
+      .filter((p) => p.paye)
+      .filter((p) => new Date(dateEncaissement(p)) >= debutSemaine)
+      .reduce((s, p) => s + p.montant_paye, 0);
+    const fcfaSemaineDerniere = participants
+      .filter((p) => p.paye)
+      .filter((p) => { const d = new Date(dateEncaissement(p)); return d >= debutSemaineDerniere && d < debutSemaine; })
+      .reduce((s, p) => s + p.montant_paye, 0);
+
+    return { inscritsCetteSemaine, inscritsSemaineDerniere, fcfaCetteSemaine, fcfaSemaineDerniere };
+  }, [participants]);
 
   const navItems: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
     { key: "dashboard", label: "Dashboard", icon: Icons.dashboard },
@@ -344,9 +382,9 @@ function AdminDashboard() {
     {
       label: "Participants",
       value: stats.totalParticipants.toLocaleString("fr-FR"),
-      trend: "+10.51%",
-      trendLabel: "vs sem. dernière",
-      trendUp: true,
+      trend: `+${progression.inscritsCetteSemaine}`,
+      trendLabel: "inscrits cette semaine",
+      trendUp: progression.inscritsCetteSemaine > 0 ? true : null,
       icon: Icons.users,
       iconBg: "bg-indigo-50",
       iconColor: "text-indigo-600",
@@ -355,9 +393,9 @@ function AdminDashboard() {
     {
       label: "FCFA encaissés",
       value: stats.totalFCFA.toLocaleString("fr-FR"),
-      trend: "+8.1%",
-      trendLabel: "vs 7 derniers jours",
-      trendUp: true,
+      trend: `+${progression.fcfaCetteSemaine.toLocaleString("fr-FR")}`,
+      trendLabel: "FCFA cette semaine",
+      trendUp: progression.fcfaCetteSemaine > 0 ? true : null,
       icon: Icons.dollar,
       iconBg: "bg-orange-50",
       iconColor: "text-orange-500",
@@ -366,8 +404,8 @@ function AdminDashboard() {
     {
       label: "Payés",
       value: stats.totalPayes.toLocaleString("fr-FR"),
-      trend: "+0.3",
-      trendLabel: "vs sem. précédente",
+      trend: stats.totalParticipants > 0 ? `${Math.round((stats.totalPayes / stats.totalParticipants) * 100)}%` : "0%",
+      trendLabel: "des inscrits",
       trendUp: true,
       icon: Icons.checkCircle,
       iconBg: "bg-emerald-50",
@@ -375,10 +413,21 @@ function AdminDashboard() {
       glow: "bg-emerald-500",
     },
     {
+      label: "Non payés",
+      value: stats.totalNonPayes.toLocaleString("fr-FR"),
+      trend: stats.totalParticipants > 0 ? `${Math.round((stats.totalNonPayes / stats.totalParticipants) * 100)}%` : "0%",
+      trendLabel: "des inscrits",
+      trendUp: stats.totalNonPayes > 0 ? false : null,
+      icon: Icons.alert,
+      iconBg: "bg-red-50",
+      iconColor: "text-red-500",
+      glow: "bg-red-500",
+    },
+    {
       label: "Cours",
       value: stats.totalCours.toString(),
-      trend: "Au-dessus",
-      trendLabel: "de l'objectif",
+      trend: "Total",
+      trendLabel: `${stats.totalSessions} séances programmées`,
       trendUp: null,
       icon: Icons.book,
       iconBg: "bg-blue-50",
@@ -386,22 +435,11 @@ function AdminDashboard() {
       glow: "bg-blue-500",
     },
     {
-      label: "Sessions",
-      value: stats.totalSessions.toString(),
-      trend: "+1",
-      trendLabel: "vs 7 derniers jours",
-      trendUp: true,
-      icon: Icons.calendar,
-      iconBg: "bg-pink-50",
-      iconColor: "text-pink-500",
-      glow: "bg-pink-500",
-    },
-    {
       label: "Cette semaine",
       value: stats.sessionsCetteSemaine.toString(),
-      trend: "Sous",
-      trendLabel: "l'objectif ROAS",
-      trendUp: false,
+      trend: "Sessions",
+      trendLabel: "dans les 7 prochains jours",
+      trendUp: null,
       icon: Icons.lightning,
       iconBg: "bg-lime-50",
       iconColor: "text-lime-600",
@@ -409,15 +447,65 @@ function AdminDashboard() {
     },
   ];
 
-  const chartData = [
-    { day: "1 Avr", revenue: 45, spend: 25, revVal: "12 400", spendVal: "5 200" },
-    { day: "2 Avr", revenue: 55, spend: 30, revVal: "18 900", spendVal: "7 100" },
-    { day: "3 Avr", revenue: 35, spend: 20, revVal: "9 800", spendVal: "4 300" },
-    { day: "4 Avr", revenue: 85, spend: 40, revVal: "28 500", spendVal: "11 200" },
-    { day: "5 Avr", revenue: 50, spend: 28, revVal: "15 600", spendVal: "6 800" },
-    { day: "6 Avr", revenue: 40, spend: 22, revVal: "11 200", spendVal: "4 900" },
-    { day: "7 Avr", revenue: 65, spend: 35, revVal: "21 300", spendVal: "9 400" },
-  ];
+  // ── Revenus réels agrégés par période sélectionnée ──
+  const bucketKeyFor = (date: Date, p: typeof periode): string => {
+    if (p === "jour") { const d = new Date(date); d.setHours(0, 0, 0, 0); return d.toISOString().split("T")[0]; }
+    if (p === "semaine") return startOfWeek(date).toISOString().split("T")[0];
+    if (p === "mois") return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    return `${date.getFullYear()}`;
+  };
+
+  const bucketLabelFor = (date: Date, p: typeof periode): string => {
+    if (p === "jour") return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    if (p === "semaine") return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    if (p === "mois") return date.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+    return `${date.getFullYear()}`;
+  };
+
+  const bucketDateAt = (now: Date, i: number, p: typeof periode): Date => {
+    if (p === "jour") { const d = new Date(now); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0); return d; }
+    if (p === "semaine") { const d = new Date(now); d.setDate(d.getDate() - i * 7); return startOfWeek(d); }
+    if (p === "mois") return new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return new Date(now.getFullYear() - i, 0, 1);
+  };
+
+  const nbBuckets = { jour: 14, semaine: 8, mois: 6, annee: 5 }[periode];
+
+  const revenueSeries = useMemo(() => {
+    const now = new Date();
+    const buckets = Array.from({ length: nbBuckets }, (_, idx) => {
+      const i = nbBuckets - 1 - idx;
+      const d = bucketDateAt(now, i, periode);
+      return { key: bucketKeyFor(d, periode), label: bucketLabelFor(d, periode), total: 0 };
+    });
+    const map = new Map(buckets.map((b) => [b.key, b]));
+    participants.forEach((p) => {
+      if (!p.paye) return;
+      const raw = p.date_paiement || p.created_at;
+      if (!raw) return;
+      const key = bucketKeyFor(new Date(raw), periode);
+      const bucket = map.get(key);
+      if (bucket) bucket.total += p.montant_paye;
+    });
+    return buckets;
+  }, [participants, periode, nbBuckets]);
+
+  const totalPeriode = useMemo(() => revenueSeries.reduce((s, b) => s + b.total, 0), [revenueSeries]);
+  const maxBucket = useMemo(() => Math.max(1, ...revenueSeries.map((b) => b.total)), [revenueSeries]);
+
+  const repartitionNiveaux = useMemo(() => {
+    const niveaux: Participant["niveau_etudes"][] = ["Collège", "Lycée", "Licence"];
+    const total = participants.length || 1;
+    return niveaux.map((n) => {
+      const count = participants.filter((p) => p.niveau_etudes === n).length;
+      return { niveau: n, count, pct: Math.round((count / total) * 100) };
+    });
+  }, [participants]);
+
+  const derniersInscrits = useMemo(
+    () => [...participants].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5),
+    [participants]
+  );
 
   if (loading) {
     return (
@@ -520,16 +608,6 @@ function AdminDashboard() {
                 <p className="text-sm text-slate-500 font-medium mt-1">
                   Vue d'ensemble du Bootcamp Amphix 2026 — suivez les inscriptions, les revenus et le programme en temps réel.
                 </p>
-                <div className="flex gap-2.5 mt-4">
-                  <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white bg-gradient-to-r from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/30 hover:-translate-y-0.5 hover:shadow-xl transition-all active:translate-y-0">
-                    {Icons.plusBtn}
-                    Nouvelle campagne
-                  </button>
-                  <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition">
-                    {Icons.editBtn}
-                    Ajouter une tâche
-                  </button>
-                </div>
               </div>
             </section>
 
@@ -564,137 +642,120 @@ function AdminDashboard() {
             {/* CONTENT GRID */}
             <section className="px-7 py-6 pb-20 max-w-6xl">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* CHART */}
+                {/* CHART REVENUS RÉELS */}
                 <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-2 text-[15px] font-bold">
                       <span className="text-indigo-500">{Icons.chart}</span>
-                      Performance Overview
+                      Revenus encaissés
                     </div>
-                    <div className="flex gap-1.5">
-                      <button className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-indigo-500 text-white">Revenus</button>
-                      <button className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition">Dépenses</button>
-                    </div>
-                  </div>
-                  <div className="p-5 h-[280px]">
-                    <div className="flex items-end justify-between h-[200px] gap-2 px-1">
-                      {chartData.map((d) => (
-                        <div key={d.day} className="flex-1 flex flex-col items-center gap-1.5">
-                          <div className="w-full h-[180px] flex items-end justify-center gap-1">
-                            <div className="w-3.5 rounded-t-md bg-gradient-to-t from-indigo-500 to-violet-500 relative group cursor-pointer transition-all hover:brightness-110" style={{ height: `${d.revenue}%` }}>
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] font-semibold rounded-lg opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
-                                {d.revVal} FCFA
-                              </div>
-                            </div>
-                            <div className="w-3.5 rounded-t-md bg-gradient-to-t from-slate-400 to-slate-300 relative group cursor-pointer transition-all hover:brightness-110" style={{ height: `${d.spend}%` }}>
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] font-semibold rounded-lg opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
-                                {d.spendVal} FCFA
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-[11px] text-slate-500 font-medium">{d.day}</span>
-                        </div>
+                    <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+                      {([
+                        { key: "jour", label: "Jour" },
+                        { key: "semaine", label: "Semaine" },
+                        { key: "mois", label: "Mois" },
+                        { key: "annee", label: "Année" },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => setPeriode(opt.key)}
+                          className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                            periode === opt.key ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
                       ))}
                     </div>
-                    <div className="flex justify-center gap-5 mt-3">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <div className="w-2 h-2 rounded-sm bg-gradient-to-br from-indigo-500 to-violet-500" />
-                        Revenus
+                  </div>
+
+                  <div className="px-5 pt-4 flex items-baseline gap-2">
+                    <span className="text-2xl font-extrabold tracking-tight">{totalPeriode.toLocaleString("fr-FR")}</span>
+                    <span className="text-sm font-semibold text-slate-400">FCFA sur la période affichée</span>
+                  </div>
+
+                  <div className="p-5 h-[240px]">
+                    {totalPeriode === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                        <span className="w-10 h-10 mb-2">{Icons.dollar}</span>
+                        <p className="text-sm text-slate-400 font-medium">Aucun paiement enregistré sur cette période</p>
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <div className="w-2 h-2 rounded-sm bg-gradient-to-br from-slate-400 to-slate-300" />
-                        Dépenses
+                    ) : (
+                      <div className="flex items-end justify-between h-full gap-1.5 px-1">
+                        {revenueSeries.map((b) => (
+                          <div key={b.key} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                            <div
+                              className="w-full max-w-[36px] rounded-t-md bg-gradient-to-t from-indigo-500 to-violet-500 relative group cursor-pointer transition-all hover:brightness-110"
+                              style={{ height: `${Math.max(4, (b.total / maxBucket) * 100)}%` }}
+                            >
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] font-semibold rounded-lg opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap z-10">
+                                {b.total.toLocaleString("fr-FR")} FCFA
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">{b.label}</span>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
                 {/* RIGHT COLUMN */}
                 <div className="flex flex-col gap-5">
-                  {/* Campaigns at Risk */}
+                  {/* Répartition par niveau */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-[15px] font-bold">
-                        <span className="text-amber-500">{Icons.alert}</span>
-                        Campagnes à risque
-                      </div>
-                      <button className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 transition">
-                        {Icons.more}
-                      </button>
+                    <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2 text-[15px] font-bold">
+                      <span className="text-indigo-500">{Icons.users}</span>
+                      Répartition par niveau
                     </div>
-                    <div className="divide-y divide-slate-50">
-                      <div className="flex items-center gap-3 px-5 py-3.5">
-                        <div className="w-[18px] h-[18px] rounded-md bg-indigo-500 flex items-center justify-center">
-                          {Icons.check}
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-[13px] font-semibold text-slate-900">Spring Retargeting</div>
-                          <div className="flex gap-1.5 mt-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-red-50 text-red-600">
-                              {Icons.google}
-                              Google Ads
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600">
-                              Actif
-                            </span>
+                    <div className="p-5 space-y-4">
+                      {repartitionNiveaux.map((r) => (
+                        <div key={r.niveau}>
+                          <div className="flex items-center justify-between text-[13px] mb-1.5">
+                            <span className="font-semibold text-slate-700">{r.niveau}</span>
+                            <span className="text-slate-400 font-medium">{r.count} ({r.pct}%)</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
+                              style={{ width: `${r.pct}%` }}
+                            />
                           </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Tasks */}
+                  {/* Derniers inscrits */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-[15px] font-bold">
-                        <span className="text-indigo-500">{Icons.task}</span>
-                        Tâches
-                      </div>
-                      <button className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 transition">
-                        {Icons.more}
-                      </button>
+                    <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2 text-[15px] font-bold">
+                      <span className="text-pink-500">{Icons.calendar}</span>
+                      Derniers inscrits
                     </div>
-                    <div className="divide-y divide-slate-50">
-                      <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition cursor-pointer">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                          <span className="text-emerald-600">{Icons.checkCircle}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-semibold text-slate-900 truncate">Fix budget pacing for Meta prospecting</div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">Financement · 2h restantes</div>
-                        </div>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 flex-shrink-0">
-                          Terminé
-                        </span>
+                    {derniersInscrits.length === 0 ? (
+                      <p className="px-5 py-8 text-center text-sm text-slate-400">Aucun participant pour l'instant.</p>
+                    ) : (
+                      <div className="divide-y divide-slate-50">
+                        {derniersInscrits.map((p) => (
+                          <div key={p.id} className="flex items-center gap-3 px-5 py-3.5">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0 text-indigo-600 font-bold text-xs">
+                              {p.prenoms?.[0] || p.nom[0]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[13px] font-semibold text-slate-900 truncate">{p.prenoms} {p.nom}</div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                {new Date(p.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} · {p.niveau_etudes}
+                              </div>
+                            </div>
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${
+                              p.paye ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+                            }`}>
+                              {p.paye ? "Payé" : "Non payé"}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Upcoming */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-[15px] font-bold">
-                        <span className="text-pink-500">{Icons.calendar}</span>
-                        Avril 2026
-                      </div>
-                      <button className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 transition">
-                        {Icons.more}
-                      </button>
-                    </div>
-                    <div className="divide-y divide-slate-50">
-                      <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition cursor-pointer">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                          <span className="text-indigo-500">{Icons.mail}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-semibold text-slate-900 truncate">CozyHome Email Launch</div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">8 Avr · 08:00 – 11:00</div>
-                        </div>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0">
-                          Lancer
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -784,7 +845,7 @@ function ParticipantsTab({ participants, onRefresh }: { participants: Participan
     setResetLoading(false);
 
     if (error) {
-      setResetError("Une erreur est survenue lors de la mise à jour.");
+      setResetError(error.message || "Une erreur est survenue lors de la mise à jour.");
       return;
     }
 
@@ -792,13 +853,73 @@ function ParticipantsTab({ participants, onRefresh }: { participants: Participan
     setTimeout(() => setResetTarget(null), 1200);
   };
 
-  const togglePaye = async (id: string, current: boolean) => {
-    const montant = current ? 0 : 5000;
-    const { error } = await supabase
+  const [paymentTarget, setPaymentTarget] = useState<Participant | null>(null);
+  const [montantInput, setMontantInput] = useState("");
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+
+  const openPayment = (p: Participant) => {
+    setPaymentTarget(p);
+    setMontantInput(p.paye && p.montant_paye ? String(p.montant_paye) : "");
+    setPaymentError("");
+  };
+
+  const closePayment = () => setPaymentTarget(null);
+
+  const handleConfirmPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentTarget) return;
+    setPaymentError("");
+
+    const montant = parseInt(montantInput.replace(/[^\d]/g, ""), 10);
+    if (!montant || montant <= 0) {
+      setPaymentError("Entrez un montant valide (en FCFA).");
+      return;
+    }
+
+    setPaymentLoading(true);
+    let { error } = await supabase
       .from("participants")
-      .update({ paye: !current, montant_paye: montant })
+      .update({ paye: true, montant_paye: montant, date_paiement: new Date().toISOString() })
+      .eq("id", paymentTarget.id);
+
+    // Repli si la colonne date_paiement n'existe pas encore (migration SQL non exécutée) :
+    // on enregistre au moins le paiement sans bloquer l'admin.
+    if (error && /date_paiement/i.test(error.message || "")) {
+      const retry = await supabase
+        .from("participants")
+        .update({ paye: true, montant_paye: montant })
+        .eq("id", paymentTarget.id);
+      error = retry.error;
+    }
+
+    setPaymentLoading(false);
+
+    if (error) {
+      setPaymentError(error.message || "Une erreur est survenue lors de l'enregistrement.");
+      return;
+    }
+    onRefresh();
+    closePayment();
+  };
+
+  const marquerNonPaye = async (id: string) => {
+    if (!confirm("Marquer ce participant comme non payé ? Le montant enregistré sera remis à zéro.")) return;
+    let { error } = await supabase
+      .from("participants")
+      .update({ paye: false, montant_paye: 0, date_paiement: null })
       .eq("id", id);
+
+    if (error && /date_paiement/i.test(error.message || "")) {
+      const retry = await supabase
+        .from("participants")
+        .update({ paye: false, montant_paye: 0 })
+        .eq("id", id);
+      error = retry.error;
+    }
+
     if (!error) onRefresh();
+    else alert(error.message || "Une erreur est survenue.");
   };
 
   const filtered = useMemo(() => {
@@ -936,14 +1057,29 @@ function ParticipantsTab({ participants, onRefresh }: { participants: Participan
                     <td className="px-6 py-4 text-right font-mono font-semibold">{p.montant_paye.toLocaleString("fr-FR")} FCFA</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => togglePaye(p.id, p.paye)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
-                            p.paye ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                          }`}
-                        >
-                          {p.paye ? "Marquer non payé" : "Marquer payé"}
-                        </button>
+                        {p.paye ? (
+                          <>
+                            <button
+                              onClick={() => openPayment(p)}
+                              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all hover:scale-105 active:scale-95"
+                            >
+                              Modifier montant
+                            </button>
+                            <button
+                              onClick={() => marquerNonPaye(p.id)}
+                              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-all hover:scale-105 active:scale-95"
+                            >
+                              Marquer non payé
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => openPayment(p)}
+                            className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all hover:scale-105 active:scale-95"
+                          >
+                            Marquer payé
+                          </button>
+                        )}
                         <button
                           onClick={() => openReset(p)}
                           title="Réinitialiser le mot de passe"
@@ -963,6 +1099,64 @@ function ParticipantsTab({ participants, onRefresh }: { participants: Participan
       <div className="text-sm text-slate-400 text-center">
         {filtered.length} participant{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""} sur {participants.length} au total
       </div>
+
+      {/* ── MODAL : ENREGISTRER LE PAIEMENT ── */}
+      {paymentTarget && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={closePayment}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-lg font-extrabold text-slate-900">Enregistrer le paiement</h3>
+              <button
+                onClick={closePayment}
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-5">
+              Pour <span className="font-semibold text-slate-700">{paymentTarget.prenoms} {paymentTarget.nom}</span> ({paymentTarget.whatsapp})
+            </p>
+
+            <form onSubmit={handleConfirmPayment} className="space-y-4">
+              {paymentError && (
+                <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3">
+                  {paymentError}
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Montant payé (FCFA)</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={montantInput}
+                    onChange={(e) => setMontantInput(e.target.value.replace(/[^\d]/g, ""))}
+                    placeholder="Ex: 15000"
+                    autoFocus
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-16 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">FCFA</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={paymentLoading}
+                className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-3 font-semibold text-sm hover:brightness-110 transition active:scale-95 disabled:opacity-60"
+              >
+                {paymentLoading ? "..." : "Confirmer le paiement"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL : RÉINITIALISER LE MOT DE PASSE ── */}
       {resetTarget && (
