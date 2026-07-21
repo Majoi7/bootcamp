@@ -18,9 +18,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Bootcamp Amphix 2026 — Apprendre, Construire, Innover" },
-      { name: "description", content: "4 semaines de formation intensive aux métiers du numérique. Web, IA, Design, Hackathon. Inscription : 9 999 FCFA." },
+      { name: "description", content: "4 semaines de formation intensive aux métiers du numérique. Web, IA, Design, Hackathon. Inscription : 10 000 FCFA." },
       { property: "og:title", content: "Bootcamp Amphix 2026" },
-      { property: "og:description", content: "4 semaines pour transformer vos idées en projets concrets. Inscription : 9 999 FCFA." },
+      { property: "og:description", content: "4 semaines pour transformer vos idées en projets concrets. Inscription : 10 000 FCFA." },
       { property: "og:image", content: heroImg },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -349,7 +349,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
       { label: "Durée", value: "4 semaines", iconKey: "calendar", grad: "bg-gradient-ocean" },
       { label: "Mode", value: "100% en ligne", iconKey: "laptop", grad: "bg-gradient-sun" },
       { label: "Clôture", value: "Mini Hackathon", iconKey: "celebration", grad: "bg-gradient-coral" },
-      { label: "Inscription", value: "9 999 FCFA", iconKey: "ticket", grad: "bg-gradient-ocean" },
+      { label: "Inscription", value: "10 000 FCFA", iconKey: "ticket", grad: "bg-gradient-ocean" },
     ].map((c, i) => (
       <Reveal key={c.label} delay={i * 100}>
         <div className="relative rounded-2xl bg-card p-6 shadow-soft border border-border overflow-hidden hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
@@ -623,7 +623,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
       </section>
 
 
-<CountdownTimer targetDate="2026-07-24T00:00:00+01:00" />
+<CountdownTimer targetDate="2026-08-01T00:00:00+01:00" />
 
 
 
