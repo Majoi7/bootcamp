@@ -10,7 +10,7 @@ export const Route = createFileRoute("/admin")({
       { name: "description", content: "Dashboard administrateur du Bootcamp Amphix 2026." },
     ],
   }),
-  component: AdminDashboard,
+  component: ProtectedAdminDashboard,
 });
 
 /* ─── Types ─── */
@@ -255,6 +255,107 @@ async function hashPassword(password: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const arr = Array.from(new Uint8Array(hashBuffer));
   return arr.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* ─── Protection par mot de passe (script local, sans base de données) ───
+   Le mot de passe n'est jamais stocké en clair : seul son hash SHA-256
+   (avec sel) est comparé. La session reste ouverte tant que l'onglet
+   du navigateur n'est pas fermé (sessionStorage). */
+const ADMIN_PASSWORD_HASH =
+  "f4ee2798c3f0e02b0c25a1bd42a7517904219c2b4479db298b4cab221280b7a7";
+const ADMIN_SESSION_KEY = "amphix_admin_authed";
+
+function AdminLoginGate({ onSuccess }: { onSuccess: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChecking(true);
+    setError("");
+
+    const hash = await hashPassword(password);
+
+    if (hash === ADMIN_PASSWORD_HASH) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+      onSuccess();
+    } else {
+      setError("Mot de passe incorrect.");
+    }
+    setChecking(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-lg p-8"
+      >
+        <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-4">
+          {Icons.key}
+        </div>
+        <h1 className="text-lg font-extrabold text-slate-900 text-center mb-1">
+          Accès Admin
+        </h1>
+        <p className="text-sm text-slate-500 text-center mb-6">
+          Entrez le mot de passe pour accéder au dashboard.
+        </p>
+
+        <label className="text-sm font-semibold text-slate-500 mb-1.5 block">
+          Mot de passe
+        </label>
+        <div className="relative mb-2">
+          <input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+            placeholder="••••••••"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((s) => !s)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-600"
+          >
+            {showPassword ? "Cacher" : "Voir"}
+          </button>
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-500 font-medium mb-2">{error}</p>
+        )}
+
+        <button
+          type="submit"
+          disabled={checking || !password}
+          className="w-full mt-4 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-4 py-3 font-semibold text-sm hover:brightness-110 transition active:scale-95 disabled:opacity-60"
+        >
+          {checking ? "Vérification..." : "Se connecter"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function ProtectedAdminDashboard() {
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setIsAuthed(sessionStorage.getItem(ADMIN_SESSION_KEY) === "1");
+  }, []);
+
+  if (isAuthed === null) {
+    return <div className="min-h-screen bg-slate-50" />;
+  }
+
+  if (!isAuthed) {
+    return <AdminLoginGate onSuccess={() => setIsAuthed(true)} />;
+  }
+
+  return <AdminDashboard />;
 }
 
 /* ─── Composant Admin ─── */

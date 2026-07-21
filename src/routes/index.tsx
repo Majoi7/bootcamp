@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import heroImg from "@/assets/bootcamp-hero.jpeg";
 import { InfiniteTextMarquee } from "@/components/ui/InfiniteTextMarquee";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import campfireImg from "@/assets/logos/campfire.png";
 import certificatImg from "@/assets/logos/certificat.png";
 import { logoMap, infoIconMap } from "@/assets/logos";
 import { SparklesText } from "@/components/ui/sparkles-text";
-import Spline from "@splinetool/react-spline";
+const Spline = lazy(() => import("@splinetool/react-spline"));
 import CountdownTimer from "@/components/ui/CountdownTimer";
 import TeamShowcase from "@/components/TeamShowcase";
 import { supabase } from "@/lib/supabase"; // adapte le chemin
@@ -63,18 +63,25 @@ function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [phase, setPhase] = useState(0); // 0: loading, 1: reveal, 2: exit
 
   useEffect(() => {
+    // Si l'utilisateur préfère les animations réduites, on passe directement.
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) {
+      onComplete();
+      return;
+    }
+
     const interval = setInterval(() => {
       setProgress((p) => {
         if (p >= 100) {
           clearInterval(interval);
-          setTimeout(() => setPhase(1), 300);
-          setTimeout(() => setPhase(2), 1200);
-          setTimeout(() => onComplete(), 2200);
+          setTimeout(() => setPhase(1), 200);
+          setTimeout(() => setPhase(2), 700);
+          setTimeout(() => onComplete(), 1300);
           return 100;
         }
-        return p + Math.random() * 15 + 5;
+        return p + Math.random() * 25 + 12;
       });
-    }, 120);
+    }, 90);
     return () => clearInterval(interval);
   }, [onComplete]);
 
@@ -131,6 +138,52 @@ function SplashScreen({ onComplete }: { onComplete: () => void }) {
       <p className="absolute bottom-8 text-xs text-white/30 tracking-widest uppercase">
         Apprendre · Construire · Innover
       </p>
+    </div>
+  );
+}
+
+/* ─────────────── SPLINE 3D — chargement paresseux ───────────────
+   La librairie Spline est lourde : on ne la télécharge et on ne la
+   monte que lorsque la section devient visible à l'écran (au lieu
+   de la charger dès l'arrivée sur la page). */
+function LazySpline({ scene, className }: { scene: string; className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px 0px" } // commence à charger un peu avant que ça soit visible
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className={className}>
+      {shouldLoad ? (
+        <Suspense
+          fallback={
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            </div>
+          }
+        >
+          <Spline scene={scene} noAttribution={true} className="w-full h-full" />
+        </Suspense>
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        </div>
+      )}
     </div>
   );
 }
@@ -223,13 +276,23 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 }
 
 function Index() {
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => {
+    // On n'affiche l'écran de démarrage qu'une seule fois par session,
+    // pour ne pas ralentir les retours sur la page d'accueil.
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("amphix_splash_seen") !== "1";
+  });
     const [showForm, setShowForm] = useState(false);  // ← AJOUTE CETTE LIGNE
 
   const heroParallax = useParallax(0.3);
   const campFireParallax = useParallax(-0.2);
   const rewardsParallax = useParallax(0.15);
 const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+
+  const handleSplashComplete = () => {
+    sessionStorage.setItem("amphix_splash_seen", "1");
+    setShowSplash(false);
+  };
 
   useEffect(() => {
     const fetchTestimonials = async () => {
@@ -249,9 +312,17 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
 
   return (
     <>
-      {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
 
       <main className={`min-h-screen bg-background overflow-x-hidden transition-opacity duration-500 ${showSplash ? "opacity-0" : "opacity-100"}`}>
+        {/* Navigation fluide vers les ancres (#programme, #inscription...) */}
+        <style>{`
+          html { scroll-behavior: smooth; }
+          @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+          }
+        `}</style>
+
         {/* BARRE D'URGENCE — Défilante, responsive */}
         <div className="sticky top-0 z-40 w-full bg-gradient-to-r from-red-600 via-orange-600 to-red-600 overflow-hidden py-2 sm:py-2.5 shadow-md">
           <style>{`
@@ -337,7 +408,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
             </div>
             <div className="relative animate-float">
               <div className="absolute -inset-8 bg-gradient-sun opacity-30 blur-3xl rounded-full" />
-              <img src={heroImg} alt="Bootcamp Amphix — code et été" className="relative rounded-3xl shadow-pop w-full" />
+              <img src={heroImg} alt="Bootcamp Amphix — code et été" className="relative rounded-3xl shadow-pop w-full" loading="eager" fetchPriority="high" />
             </div>
           </div>
         </section>
@@ -360,6 +431,8 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
               src={infoIconMap[c.iconKey]}
               alt={c.label}
               className="w-full h-full object-contain"
+              loading="lazy"
+              decoding="async"
             />
           </div>
           <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">{c.label}</div>
@@ -393,7 +466,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
               <Reveal key={t.title} delay={i * 80}>
                 <div className="group rounded-2xl bg-card p-6 border border-border shadow-soft hover:shadow-pop hover:-translate-y-1 transition-all duration-300">
                <div className="inline-flex w-14 h-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-  <img src={logoMap[t.logo]} alt={t.title} className="w-7 h-7 object-contain" />
+  <img src={logoMap[t.logo]} alt={t.title} className="w-7 h-7 object-contain" loading="lazy" decoding="async" />
 </div>
                   <h3 className="mt-4 font-display text-xl font-bold">{t.title}</h3>
                   <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground">
@@ -414,7 +487,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
           <div className="relative mx-auto max-w-5xl px-6 grid md:grid-cols-2 gap-12 items-center">
             <div>
   <div className="inline-block animate-pulse">
-        <img src={campfireImg} alt="Campfire" className="w-20 h-20 object-contain" />
+        <img src={campfireImg} alt="Campfire" className="w-20 h-20 object-contain" loading="lazy" decoding="async" />
       </div>
                     <h2 className="mt-4 font-display text-5xl font-bold">Soirées Campfire</h2>
               <p className="mt-4 text-lg opacity-90">Des moments uniques de détente, d'apprentissage et de networking entre passionnés.</p>
@@ -451,9 +524,8 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   {/* Robot 3D centré et sans watermark */}
   <Reveal>
     <div className="flex items-center justify-center w-full h-80 md:h-96 mb-10">
-      <Spline
+      <LazySpline
         scene="https://prod.spline.design/eNdnHh8iifDjRlcB/scene.splinecode"
-        noAttribution={true}
         className="w-full h-full max-w-lg"
       />
     </div>
@@ -527,7 +599,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
            <div className="flex justify-center">
   <Reveal delay={100}>
     <div className="rounded-2xl bg-card border border-border p-6 flex items-center gap-4 shadow-soft hover:shadow-pop hover:-translate-y-1 transition-all duration-300 max-w-md">
-  <img src={certificatImg} alt="Certificat" className="w-12 h-12 object-contain" />
+  <img src={certificatImg} alt="Certificat" className="w-12 h-12 object-contain" loading="lazy" decoding="async" />
   <div>
         <div className="font-display text-xl font-bold">Certificat des participants </div>
         <div className="text-sm text-muted-foreground">Pour tous les participants</div>
