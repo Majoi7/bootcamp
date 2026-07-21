@@ -171,6 +171,11 @@ function QuestionnairePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(null);
 
+  // Compteur d'inscrits — urgence (50 déjà inscrits sur 200 places)
+  const TOTAL_PLACES = 200;
+  const INITIAL_REGISTERED = 50;
+  const [registeredCount, setRegisteredCount] = useState(INITIAL_REGISTERED);
+
   const currentQuestion = questions[currentStep];
   const totalQuestions = questions.length;
   const currentAnswer = answers[currentQuestion.id];
@@ -181,6 +186,26 @@ function QuestionnairePage() {
     const pid = params.get("pid") || localStorage.getItem("amphix_participant_id");
     if (pid) setParticipantId(pid);
   }, []);
+
+  // Récupérer le compteur d'inscrits depuis le localStorage (persistance locale)
+  useEffect(() => {
+    const stored = localStorage.getItem("amphix_registered_count");
+    if (stored) {
+      const parsed = parseInt(stored, 10);
+      if (!Number.isNaN(parsed)) {
+        setRegisteredCount(Math.min(Math.max(parsed, INITIAL_REGISTERED), TOTAL_PLACES));
+      }
+    }
+  }, []);
+
+  // Incrémente le compteur d'inscrits à chaque clic sur "Payer"
+  const incrementRegisteredCount = () => {
+    setRegisteredCount((prev) => {
+      const next = Math.min(prev + 1, TOTAL_PLACES);
+      localStorage.setItem("amphix_registered_count", String(next));
+      return next;
+    });
+  };
 
   // Sauvegarder automatiquement dans Supabase
   const saveAnswer = useCallback(
@@ -280,6 +305,62 @@ if (isFinished) {
     <main className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12 font-['Inter',sans-serif]">
       <div className="max-w-xl w-full">
 
+        {/* ── Styles pour la lueur blanche et l'animation bloquée ── */}
+        <style>{`
+          @keyframes white-glow-pulse {
+            0%, 100% {
+              box-shadow: inset 0 0 8px 2px rgba(255, 255, 255, 0.6),
+                          0 0 6px 2px rgba(255, 255, 255, 0.4);
+            }
+            50% {
+              box-shadow: inset 0 0 20px 6px rgba(255, 255, 255, 0.9),
+                          0 0 16px 6px rgba(255, 255, 255, 0.7);
+            }
+          }
+          @keyframes progress-blocked {
+            0%   { width: 71%; }
+            40%  { width: 78%; }
+            50%  { width: 78%; }
+            60%  { width: 75%; }
+            70%  { width: 75%; }
+            80%  { width: 71%; }
+            100% { width: 71%; }
+          }
+          .white-glow-pulse {
+            animation: white-glow-pulse 2s ease-in-out infinite;
+          }
+          .progress-blocked {
+            animation: progress-blocked 2.5s ease-in-out infinite;
+          }
+        `}</style>
+
+        {/* Barre d'urgence — Places restantes (jaune) */}
+        <motion.div
+          className="rounded-2xl bg-yellow-50 border-2 border-yellow-400 p-4 sm:p-5 mb-6 sm:mb-8"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <span className="text-[11px] sm:text-sm font-bold text-yellow-800 uppercase tracking-wide flex items-center gap-1.5">
+              🔥 Places limitées
+            </span>
+            <span className="text-[11px] sm:text-sm font-bold text-yellow-800 whitespace-nowrap">
+              {registeredCount}/{TOTAL_PLACES} inscrits
+            </span>
+          </div>
+          <div className="h-2.5 sm:h-3 bg-yellow-100 rounded-full overflow-hidden relative">
+            <div
+              className="progress-blocked h-full bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full relative"
+            >
+              <div className="white-glow-pulse absolute inset-0 rounded-full" />
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] sm:text-xs text-yellow-700">
+            Il ne reste que {TOTAL_PLACES - registeredCount} places disponibles sur {TOTAL_PLACES}.
+          </p>
+        </motion.div>
+
         {/* HandWrittenTitle avec animation Framer Motion */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -299,10 +380,10 @@ if (isFinished) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.2, duration: 0.8 }}
         >
-          <strong className="text-gray-900">Encore une dernière étape avant de réserver officiellement ta place.</strong>
+          <strong className="text-gray-900">Il te reste une seule et dernière étape avant de rejoindre officiellement le Bootcamp.</strong>
         </motion.p>
 
-        {/* Webinaire — Urgence + Valeur */}
+        {/* Paiement — Dernière étape */}
         <motion.div
           className="rounded-2xl bg-sky-50 border border-sky-200 p-4 sm:p-6 mb-6 sm:mb-8 text-left"
           initial={{ opacity: 0, y: 20 }}
@@ -310,33 +391,30 @@ if (isFinished) {
           transition={{ delay: 1.5, duration: 0.8 }}
         >
           <h3 className="font-semibold text-gray-900 mb-3 text-sm sm:text-base">
-            📅 Webinaire Privé — Dimanche 19 juillet à 16h
+            Passe au paiement pour valider ta place
           </h3>
           <ul className="space-y-2 text-gray-600 text-xs sm:text-sm">
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Présentation complète du programme</span>
+              <span>Clique sur le bouton "Payer" ci-dessous</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Les projets réels que tu vas construire</span>
+              <span>Un membre de l'équipe Amphix va t'accompagner directement sur WhatsApp</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Rencontre avec les mentors</span>
+              <span>Il t'aidera à bien finaliser ton paiement et ton inscription</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Les bonus exclusifs pour les participants</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span><strong>Ouverture officielle des inscriptions</strong></span>
+              <span><strong>Ta place sera alors officiellement réservée</strong></span>
             </li>
           </ul>
-          <p className="mt-4 text-[10px] sm:text-xs text-gray-500">
-            Le lien du webinaire sera envoyé uniquement dans la communauté WhatsApp.
-          </p>
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-white border border-sky-200 px-4 py-3">
+            <span className="text-xs sm:text-sm text-gray-500">Frais d'inscription au Bootcamp</span>
+            <span className="font-display text-lg sm:text-xl font-bold text-gray-900">10 000 FCFA</span>
+          </div>
         </motion.div>
 
         {/* ⚠️ Alerte urgence */}
@@ -347,11 +425,11 @@ if (isFinished) {
           transition={{ delay: 1.7, duration: 0.8 }}
         >
           <p className="text-xs sm:text-sm text-amber-800 font-medium">
-            ⚠️ Le lien du webinaire ne sera envoyé que dans la communauté WhatsApp.
+            ⚠️ Les places sont limitées à 200 participants. Finalise ton paiement dès maintenant pour garantir ta place.
           </p>
         </motion.div>
 
-        {/* Bouton WhatsApp — CTA fort */}
+        {/* Bouton Paiement WhatsApp — CTA fort */}
         <motion.div
           className="text-center"
           initial={{ opacity: 0, y: 20 }}
@@ -359,15 +437,18 @@ if (isFinished) {
           transition={{ delay: 1.8, duration: 0.8 }}
         >
           <a
-            href="https://chat.whatsapp.com/J0WlmamZBQyJTygrog4rhR?s=cl&p=a&ilr=1"
+            href={`https://wa.me/22968576110?text=${encodeURIComponent(
+              "Bonjour je souhaiterais passer au paiement afin de pourvoir rejoindre le Bootcamp."
+            )}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 font-semibold text-sm sm:text-lg hover:bg-[#128C7E] transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg w-full sm:w-auto"
             onClick={async () => {
               trackContact(); // ← événement Meta
+              incrementRegisteredCount(); // ← incrémente la barre d'urgence
               if (participantId) {
                 await supabase.from("tracking_events").insert({
-                  event_type: "whatsapp_click",
+                  event_type: "payment_button_click",
                   participant_id: participantId,
                 });
               }
@@ -376,17 +457,16 @@ if (isFinished) {
             <svg className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
             </svg>
-            <span className="whitespace-nowrap">Rejoindre la communauté WhatsApp</span>
+            <span className="whitespace-nowrap">Payer 10 000 FCFA — Finaliser mon inscription</span>
           </a>
           <p className="mt-3 text-xs text-gray-400">
-            Tu recevras le lien du webinaire directement dans le groupe
+            Tu seras redirigé vers WhatsApp pour être accompagné par l'équipe Amphix
           </p>
         </motion.div>
       </div>
     </main>
   );
 }
-
   /* ─── Questionnaire ────────────────────────────────────────────────────── */
   return (
     <main className="min-h-screen bg-white font-['Inter',sans-serif] flex flex-col">

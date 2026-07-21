@@ -252,6 +252,38 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
       {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
 
       <main className={`min-h-screen bg-background overflow-x-hidden transition-opacity duration-500 ${showSplash ? "opacity-0" : "opacity-100"}`}>
+        {/* BARRE D'URGENCE — Défilante, responsive */}
+        <div className="sticky top-0 z-40 w-full bg-gradient-to-r from-red-600 via-orange-600 to-red-600 overflow-hidden py-2 sm:py-2.5 shadow-md">
+          <style>{`
+            @keyframes urgency-marquee-scroll {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+            .urgency-marquee-track {
+              animation: urgency-marquee-scroll 20s linear infinite;
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .urgency-marquee-track { animation: none; }
+            }
+          `}</style>
+          <div className="urgency-marquee-track flex w-max whitespace-nowrap">
+            {Array.from({ length: 2 }).map((_, groupIdx) => (
+              <div key={groupIdx} className="flex shrink-0 items-center" aria-hidden={groupIdx === 1}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="flex items-center gap-2 px-4 sm:px-6 text-[11px] sm:text-sm md:text-base font-semibold uppercase tracking-wide text-white"
+                  >
+                    <span aria-hidden="true">⚡</span>
+                    Dernière vague des inscriptions — Fin mardi 28 juillet 2026
+                    <span className="mx-2 text-white/50">•</span>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* HERO */}
         <section className="relative bg-gradient-hero overflow-hidden">
           <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 30%, oklch(0.62 0.18 240 / 0.2), transparent 40%), radial-gradient(circle at 80% 70%, oklch(0.68 0.2 25 / 0.2), transparent 40%)" }} />
