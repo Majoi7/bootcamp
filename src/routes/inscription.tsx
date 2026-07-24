@@ -543,108 +543,6 @@ if (stage === "finished") {
   );
 }
 
-/* ─── Formulaire d'accueil (Nom & Prénom + WhatsApp) ─────────────────────── */
-function LeadFormScreen({
-  leadName,
-  setLeadName,
-  leadWhatsapp,
-  setLeadWhatsapp,
-  leadError,
-  isSubmittingLead,
-  onSubmit,
-}: {
-  leadName: string;
-  setLeadName: (v: string) => void;
-  leadWhatsapp: string;
-  setLeadWhatsapp: (v: string) => void;
-  leadError: string;
-  isSubmittingLead: boolean;
-  onSubmit: () => void;
-}) {
-  return (
-    <main className="min-h-screen bg-white font-['Inter',sans-serif] flex flex-col items-center justify-center px-4 sm:px-6 py-10">
-      <div className="max-w-md w-full">
-        {/* Notification — un membre de l'équipe va accompagner */}
-        <motion.div
-          className="rounded-2xl bg-sky-50 border border-sky-200 p-4 sm:p-5 mb-6 sm:mb-8 flex items-start gap-3"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <span className="text-xl sm:text-2xl shrink-0">👋</span>
-          <p className="text-xs sm:text-sm text-sky-800 leading-relaxed">
-            <strong>Un membre de l'équipe Amphix vous accompagnera</strong> personnellement pour
-            finaliser votre inscription au Bootcamp.
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-        >
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1 text-center">
-            Avant de commencer
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8 text-center">
-            Laisse-nous tes coordonnées pour qu'on puisse te recontacter.
-          </p>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
-                Nom &amp; Prénom
-              </label>
-              <input
-                type="text"
-                value={leadName}
-                onChange={(e) => setLeadName(e.target.value)}
-                placeholder="Ex : Awa DOSSOU"
-                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 sm:py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
-                Numéro WhatsApp
-              </label>
-              <input
-                type="tel"
-                value={leadWhatsapp}
-                onChange={(e) => setLeadWhatsapp(e.target.value)}
-                placeholder="Ex : 90 00 00 00"
-                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 sm:py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
-              />
-            </div>
-
-            {leadError && (
-              <p className="text-xs sm:text-sm text-red-500">{leadError}</p>
-            )}
-
-            <motion.button
-              onClick={onSubmit}
-              disabled={isSubmittingLead}
-              whileTap={{ scale: 0.97 }}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 text-white px-6 py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-gray-800 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation"
-            >
-              {isSubmittingLead ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span>Envoi...</span>
-                </>
-              ) : (
-                <span>Valider</span>
-              )}
-            </motion.button>
-          </div>
-        </motion.div>
-      </div>
-    </main>
-  );
-}
   /* ─── Formulaire d'accueil ──────────────────────────────────────────────── */
   if (stage === "lead") {
     return (
@@ -809,6 +707,113 @@ function LeadFormScreen({
             </div>
           </motion.div>
         </AnimatePresence>
+      </div>
+    </main>
+  );
+}
+
+/* ─── Formulaire d'accueil (Nom & Prénom + WhatsApp) ─────────────────────── */
+/* Défini en dehors de QuestionnairePage : sinon React le recrée à chaque
+   frappe et démonte/remonte le formulaire (perte de focus, effet "ça se
+   réactualise"). */
+function LeadFormScreen({
+  leadName,
+  setLeadName,
+  leadWhatsapp,
+  setLeadWhatsapp,
+  leadError,
+  isSubmittingLead,
+  onSubmit,
+}: {
+  leadName: string;
+  setLeadName: (v: string) => void;
+  leadWhatsapp: string;
+  setLeadWhatsapp: (v: string) => void;
+  leadError: string;
+  isSubmittingLead: boolean;
+  onSubmit: () => void;
+}) {
+  return (
+    <main className="min-h-screen bg-white font-['Inter',sans-serif] flex flex-col items-center justify-center px-4 sm:px-6 py-10">
+      <div className="max-w-md w-full">
+        {/* Notification — un membre de l'équipe va accompagner */}
+        <motion.div
+          className="rounded-2xl bg-sky-50 border border-sky-200 p-4 sm:p-5 mb-6 sm:mb-8 flex items-start gap-3"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <span className="text-xl sm:text-2xl shrink-0">👋</span>
+          <p className="text-xs sm:text-sm text-sky-800 leading-relaxed">
+            <strong>Un membre de l'équipe Amphix vous accompagnera</strong> personnellement pour
+            finaliser votre inscription au Bootcamp.
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+        >
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1 text-center">
+            Avant de commencer
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8 text-center">
+            Laisse-nous tes coordonnées pour qu'on puisse te recontacter.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                Nom &amp; Prénom
+              </label>
+              <input
+                type="text"
+                value={leadName}
+                onChange={(e) => setLeadName(e.target.value)}
+                placeholder="Ex : Awa DOSSOU"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 sm:py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                Numéro WhatsApp
+              </label>
+              <input
+                type="tel"
+                value={leadWhatsapp}
+                onChange={(e) => setLeadWhatsapp(e.target.value)}
+                placeholder="Ex :+229 90 00 00 00"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 sm:py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
+              />
+            </div>
+            
+
+            {leadError && (
+              <p className="text-xs sm:text-sm text-red-500">{leadError}</p>
+            )}
+
+            <motion.button
+              onClick={onSubmit}
+              disabled={isSubmittingLead}
+              whileTap={{ scale: 0.97 }}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 text-white px-6 py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-gray-800 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation"
+            >
+              {isSubmittingLead ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Envoi...</span>
+                </>
+              ) : (
+                <span>Valider</span>
+              )}
+            </motion.button>
+          </div>
+        </motion.div>
       </div>
     </main>
   );
