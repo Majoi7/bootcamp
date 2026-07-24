@@ -171,7 +171,7 @@ function QuestionnairePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(null);
 
-  // Compteur d'inscrits — urgence (50 déjà inscrits sur 200 places)
+  // Compteur d'inscrits — urgence (global, partagé entre tous les visiteurs via Supabase)
   const TOTAL_PLACES = 200;
   const INITIAL_REGISTERED = 50;
   const [registeredCount, setRegisteredCount] = useState(INITIAL_REGISTERED);
@@ -187,24 +187,57 @@ function QuestionnairePage() {
     if (pid) setParticipantId(pid);
   }, []);
 
-  // Récupérer le compteur d'inscrits depuis le localStorage (persistance locale)
+  // Récupérer le compteur d'inscrits depuis Supabase (compteur global, partagé)
   useEffect(() => {
-    const stored = localStorage.getItem("amphix_registered_count");
-    if (stored) {
-      const parsed = parseInt(stored, 10);
-      if (!Number.isNaN(parsed)) {
-        setRegisteredCount(Math.min(Math.max(parsed, INITIAL_REGISTERED), TOTAL_PLACES));
+    const fetchCount = async () => {
+      const { data, error } = await supabase
+        .from("registration_stats")
+        .select("registered_count")
+        .eq("id", 1)
+        .single();
+
+      if (!error && data) {
+        setRegisteredCount(
+          Math.min(Math.max(data.registered_count, INITIAL_REGISTERED), TOTAL_PLACES)
+        );
       }
-    }
+    };
+    fetchCount();
+
+    // Écoute en temps réel : le compteur se met à jour tout seul chez
+    // tous les visiteurs dès qu'une personne (n'importe où) clique sur "Payer".
+    const channel = supabase
+      .channel("registration_stats_changes")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "registration_stats" },
+        (payload) => {
+          const newCount = payload.new?.registered_count;
+          if (typeof newCount === "number") {
+            setRegisteredCount(Math.min(Math.max(newCount, INITIAL_REGISTERED), TOTAL_PLACES));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  // Incrémente le compteur d'inscrits à chaque clic sur "Payer"
-  const incrementRegisteredCount = () => {
-    setRegisteredCount((prev) => {
-      const next = Math.min(prev + 1, TOTAL_PLACES);
-      localStorage.setItem("amphix_registered_count", String(next));
-      return next;
-    });
+  // Incrémente le compteur d'inscrits (global, Supabase) à chaque clic sur "Payer"
+  const incrementRegisteredCount = async () => {
+    // Mise à jour optimiste immédiate côté UI
+    setRegisteredCount((prev) => Math.min(prev + 1, TOTAL_PLACES));
+
+    try {
+      const { data, error } = await supabase.rpc("increment_registered_count");
+      if (!error && typeof data === "number") {
+        setRegisteredCount(Math.min(Math.max(data, INITIAL_REGISTERED), TOTAL_PLACES));
+      }
+    } catch (e) {
+      console.error("Erreur incrémentation compteur inscrits:", e);
+    }
   };
 
   // Sauvegarder automatiquement dans Supabase
@@ -452,12 +485,16 @@ if (isFinished) {
             className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 font-semibold text-base sm:text-lg hover:bg-[#128C7E] transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg w-full sm:w-auto sm:mx-auto touch-manipulation"
             onClick={async () => {
               trackContact(); // ← événement Meta
-              incrementRegisteredCount(); // ← incrémente la barre d'urgence
+              await incrementRegisteredCount(); // ← incrémente le compteur global (Supabase)
               if (participantId) {
-                await supabase.from("tracking_events").insert({
-                  event_type: "payment_button_click",
-                  participant_id: participantId,
-                });
+                try {
+                  await supabase.from("tracking_events").insert({
+                    event_type: "payment_button_click",
+                    participant_id: participantId,
+                  });
+                } catch (e) {
+                  console.error("Erreur tracking paiement:", e);
+                }
               }
             }}
           >
@@ -627,5 +664,3 @@ if (isFinished) {
     </main>
   );
 }
-
-export default QuestionnairePage;

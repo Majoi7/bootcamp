@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /connexion
+Sitemap: https://bootcamp-amphix.vercel.app/sitemap.xml
