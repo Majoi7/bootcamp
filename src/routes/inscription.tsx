@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import HandWrittenTitle from "@/components/ui/handwritteniitle";
 import { trackLead, trackContact } from "@/lib/facebookPixel";
+import emailjs from "@emailjs/browser";
 
 export const Route = createFileRoute("/inscription")({
   head: () => ({
@@ -106,34 +107,6 @@ const questions: Question[] = [
       "Je veux enrichir mon CV",
     ],
   },
-  {
-    id: 7,
-    text: "À quels moments de la journée serais-tu généralement disponible ?",
-    type: "multiple",
-    options: ["Matin", "Après-midi", "Soir", "Week-end", "Mon emploi du temps varie"],
-  },
-  {
-    id: 8,
-    text: "Combien d'heures peux-tu consacrer au Bootcamp chaque semaine ?",
-    type: "single",
-    options: ["3 à 5 heures", "5 à 10 heures", "Plus de 10 heures"],
-  },
-  {
-    id: 9,
-    text: "Si le Bootcamp répond à tes attentes, que feras-tu ?",
-    type: "single",
-    options: [
-      "Je suis prêt à m'inscrire",
-      "J'aurai besoin de quelques jours",
-      "Je souhaite assister au webinaire avant de décider",
-    ],
-  },
-  {
-    id: 10,
-    text: "Comment as-tu découvert le Bootcamp Amphix ?",
-    type: "single",
-    options: ["Facebook", "Instagram", "TikTok", "WhatsApp", "Un ami", "Mon établissement", "Autre"],
-  },
 ];
 
 /* ─── Animation variants ─────────────────────────────────────────────────── */
@@ -167,9 +140,15 @@ function QuestionnairePage() {
   const [answers, setAnswers] = useState<Record<number, string | string[]>>({});
   const [isAnimating, setIsAnimating] = useState(false);
   const [direction, setDirection] = useState<"next" | "prev">("next");
-  const [isFinished, setIsFinished] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(null);
+
+  // Étape courante : formulaire d'accueil → questionnaire → page finale
+  const [stage, setStage] = useState<"lead" | "questionnaire" | "finished">("lead");
+  const [leadName, setLeadName] = useState("");
+  const [leadWhatsapp, setLeadWhatsapp] = useState("");
+  const [leadError, setLeadError] = useState("");
+  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
 
   // Compteur d'inscrits — urgence (global, partagé entre tous les visiteurs via Supabase)
   const TOTAL_PLACES = 200;
@@ -184,7 +163,10 @@ function QuestionnairePage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pid = params.get("pid") || localStorage.getItem("amphix_participant_id");
-    if (pid) setParticipantId(pid);
+    if (pid) {
+      setParticipantId(pid);
+      setStage("questionnaire");
+    }
   }, []);
 
   // Récupérer le compteur d'inscrits depuis Supabase (compteur global, partagé)
@@ -260,6 +242,62 @@ function QuestionnairePage() {
     [participantId]
   );
 
+  // Envoie un email avec les infos du lead (Nom + WhatsApp) via EmailJS
+  const sendLeadEmail = async (name: string, whatsapp: string) => {
+    try {
+      await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+        {
+          nom_prenom: name,
+          whatsapp: whatsapp,
+          date: new Date().toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }),
+        },
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+      );
+    } catch (e) {
+      console.error("Erreur envoi email lead:", e);
+    }
+  };
+
+  // Soumission du formulaire d'accueil (Nom & Prénom + WhatsApp)
+  const handleLeadSubmit = async () => {
+    if (!leadName.trim() || !leadWhatsapp.trim()) {
+      setLeadError("Merci de remplir tous les champs pour continuer.");
+      return;
+    }
+    setLeadError("");
+    setIsSubmittingLead(true);
+
+    const newParticipantId = participantId || crypto.randomUUID();
+    setParticipantId(newParticipantId);
+    localStorage.setItem("amphix_participant_id", newParticipantId);
+
+    try {
+      await supabase.from("form_leads").insert({
+        id: newParticipantId,
+        full_name: leadName.trim(),
+        whatsapp: leadWhatsapp.trim(),
+      });
+
+      await supabase.from("tracking_events").insert({
+        event_type: "lead_form_submitted",
+        participant_id: newParticipantId,
+        metadata: { full_name: leadName.trim(), whatsapp: leadWhatsapp.trim() },
+      });
+    } catch (e) {
+      console.error("Erreur sauvegarde lead:", e);
+    }
+
+    // Email de notification à l'équipe avec les coordonnées du prospect
+    await sendLeadEmail(leadName.trim(), leadWhatsapp.trim());
+
+    trackLead();
+
+    setIsSubmittingLead(false);
+    setStage("questionnaire");
+  };
+
   const handleSelect = (option: string) => {
     if (isAnimating) return;
 
@@ -328,12 +366,11 @@ function QuestionnairePage() {
   // ✅ Nouvel événement Meta
   trackLead();
 
-  setIsFinished(true);
+  setStage("finished");
   setIsSubmitting(false);
 };
   /* ─── Page Finale ──────────────────────────────────────────────────────── */
- /* ─── Page Finale ──────────────────────────────────────────────────────── */
-if (isFinished) {
+if (stage === "finished") {
   return (
     <main className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12 font-['Inter',sans-serif]">
       <div className="max-w-xl w-full">
@@ -420,10 +457,10 @@ if (isFinished) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.2, duration: 0.8 }}
         >
-          <strong className="text-gray-900">Il te reste une seule et dernière étape avant de rejoindre officiellement le Bootcamp.</strong>
+          <strong className="text-gray-900">Il te reste une seule et dernière étape : rejoindre la communauté Amphix.</strong>
         </motion.p>
 
-        {/* Paiement — Dernière étape */}
+        {/* Rejoindre la communauté — Dernière étape */}
         <motion.div
           className="rounded-2xl bg-sky-50 border border-sky-200 p-4 sm:p-6 mb-6 sm:mb-8 text-left"
           initial={{ opacity: 0, y: 20 }}
@@ -431,30 +468,26 @@ if (isFinished) {
           transition={{ delay: 1.5, duration: 0.8 }}
         >
           <h3 className="font-semibold text-gray-900 mb-3 text-sm sm:text-base">
-            Passe au paiement pour valider ta place
+            Rejoins le groupe WhatsApp pour finaliser ton inscription
           </h3>
           <ul className="space-y-2 text-gray-600 text-xs sm:text-sm">
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Clique sur le bouton "Payer" ci-dessous</span>
+              <span>Clique sur le bouton "Rejoindre la communauté" ci-dessous</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Un membre de l'équipe Amphix va t'accompagner directement sur WhatsApp</span>
+              <span>Un membre de l'équipe Amphix t'y accompagnera directement</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Il t'aidera à bien finaliser ton paiement et ton inscription</span>
+              <span>Il t'aidera à finaliser ton inscription au Bootcamp</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
               <span><strong>Ta place sera alors officiellement réservée</strong></span>
             </li>
           </ul>
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-white border border-sky-200 px-4 py-3">
-            <span className="text-xs sm:text-sm text-gray-500">Frais d'inscription au Bootcamp</span>
-            <span className="font-display text-lg sm:text-xl font-bold text-gray-900">10 000 FCFA</span>
-          </div>
         </motion.div>
 
         {/* ⚠️ Alerte urgence */}
@@ -465,11 +498,11 @@ if (isFinished) {
           transition={{ delay: 1.7, duration: 0.8 }}
         >
           <p className="text-xs sm:text-sm text-amber-800 font-medium">
-            ⚠️ Les places sont limitées à 200 participants. Finalise ton paiement dès maintenant pour garantir ta place.
+            ⚠️ Les places sont limitées à 200 participants. Rejoins la communauté dès maintenant pour garantir ta place.
           </p>
         </motion.div>
 
-        {/* Bouton Paiement WhatsApp — CTA fort */}
+        {/* Bouton Rejoindre la communauté — CTA fort */}
         <motion.div
           className="text-center"
           initial={{ opacity: 0, y: 20 }}
@@ -477,9 +510,7 @@ if (isFinished) {
           transition={{ delay: 1.8, duration: 0.8 }}
         >
           <a
-            href={`https://wa.me/22968576110?text=${encodeURIComponent(
-              "Bonjour je souhaiterais passer au paiement afin de pourvoir rejoindre le Bootcamp."
-            )}`}
+            href="https://chat.whatsapp.com/Be0nwy6eOtt2bgqmZICx7f"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 font-semibold text-base sm:text-lg hover:bg-[#128C7E] transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg w-full sm:w-auto sm:mx-auto touch-manipulation"
@@ -489,11 +520,11 @@ if (isFinished) {
               if (participantId) {
                 try {
                   await supabase.from("tracking_events").insert({
-                    event_type: "payment_button_click",
+                    event_type: "community_join_click",
                     participant_id: participantId,
                   });
                 } catch (e) {
-                  console.error("Erreur tracking paiement:", e);
+                  console.error("Erreur tracking communauté:", e);
                 }
               }
             }}
@@ -501,16 +532,134 @@ if (isFinished) {
             <svg className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
             </svg>
-            <span>Payer</span>
+            <span>Rejoindre la communauté</span>
           </a>
           <p className="mt-3 text-xs text-gray-400">
-            Tu seras redirigé vers WhatsApp pour être accompagné par l'équipe Amphix
+            Tu seras redirigé vers WhatsApp pour rejoindre la communauté Amphix
           </p>
         </motion.div>
       </div>
     </main>
   );
 }
+
+/* ─── Formulaire d'accueil (Nom & Prénom + WhatsApp) ─────────────────────── */
+function LeadFormScreen({
+  leadName,
+  setLeadName,
+  leadWhatsapp,
+  setLeadWhatsapp,
+  leadError,
+  isSubmittingLead,
+  onSubmit,
+}: {
+  leadName: string;
+  setLeadName: (v: string) => void;
+  leadWhatsapp: string;
+  setLeadWhatsapp: (v: string) => void;
+  leadError: string;
+  isSubmittingLead: boolean;
+  onSubmit: () => void;
+}) {
+  return (
+    <main className="min-h-screen bg-white font-['Inter',sans-serif] flex flex-col items-center justify-center px-4 sm:px-6 py-10">
+      <div className="max-w-md w-full">
+        {/* Notification — un membre de l'équipe va accompagner */}
+        <motion.div
+          className="rounded-2xl bg-sky-50 border border-sky-200 p-4 sm:p-5 mb-6 sm:mb-8 flex items-start gap-3"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <span className="text-xl sm:text-2xl shrink-0">👋</span>
+          <p className="text-xs sm:text-sm text-sky-800 leading-relaxed">
+            <strong>Un membre de l'équipe Amphix vous accompagnera</strong> personnellement pour
+            finaliser votre inscription au Bootcamp.
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+        >
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1 text-center">
+            Avant de commencer
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8 text-center">
+            Laisse-nous tes coordonnées pour qu'on puisse te recontacter.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                Nom &amp; Prénom
+              </label>
+              <input
+                type="text"
+                value={leadName}
+                onChange={(e) => setLeadName(e.target.value)}
+                placeholder="Ex : Awa DOSSOU"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 sm:py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                Numéro WhatsApp
+              </label>
+              <input
+                type="tel"
+                value={leadWhatsapp}
+                onChange={(e) => setLeadWhatsapp(e.target.value)}
+                placeholder="Ex : 90 00 00 00"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 sm:py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
+              />
+            </div>
+
+            {leadError && (
+              <p className="text-xs sm:text-sm text-red-500">{leadError}</p>
+            )}
+
+            <motion.button
+              onClick={onSubmit}
+              disabled={isSubmittingLead}
+              whileTap={{ scale: 0.97 }}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 text-white px-6 py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-gray-800 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed touch-manipulation"
+            >
+              {isSubmittingLead ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Envoi...</span>
+                </>
+              ) : (
+                <span>Valider</span>
+              )}
+            </motion.button>
+          </div>
+        </motion.div>
+      </div>
+    </main>
+  );
+}
+  /* ─── Formulaire d'accueil ──────────────────────────────────────────────── */
+  if (stage === "lead") {
+    return (
+      <LeadFormScreen
+        leadName={leadName}
+        setLeadName={setLeadName}
+        leadWhatsapp={leadWhatsapp}
+        setLeadWhatsapp={setLeadWhatsapp}
+        leadError={leadError}
+        isSubmittingLead={isSubmittingLead}
+        onSubmit={handleLeadSubmit}
+      />
+    );
+  }
+
   /* ─── Questionnaire ────────────────────────────────────────────────────── */
   return (
     <main className="min-h-screen bg-white font-['Inter',sans-serif] flex flex-col overflow-x-hidden">
