@@ -321,6 +321,19 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
           @media (prefers-reduced-motion: reduce) {
             html { scroll-behavior: auto; }
           }
+          @keyframes cta-pulse-scale {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+          }
+          .cta-pulse {
+            animation: cta-pulse-scale 1.6s ease-in-out infinite;
+          }
+          .cta-pulse:hover {
+            animation-play-state: paused;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .cta-pulse { animation: none; }
+          }
         `}</style>
 
         {/* BARRE D'URGENCE — Défilante, responsive */}
@@ -384,14 +397,14 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   </span>
 </span>              </h1>
             <p className="mt-6 text-xl text-muted-foreground max-w-xl">
-  « Apprendre, Construire, Innover. » Donnez vie à vos idées grâce au{" "}
+  Tu n'y connais rien en code ? Pas de souci. En{" "}
   <strong className="font-bold text-ocean animate-pulse">
-    Vibe Coding
+    4 Semaines
   </strong>
-  , une nouvelle manière de créer et d'innover avec l'intelligence artificielle.
+  , tu sauras créer ton propre site. On part vraiment de zéro.
 </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a href="/inscription" className="rounded-full bg-gradient-ocean text-primary-foreground px-7 py-3.5 font-semibold shadow-pop hover:scale-105 transition active:scale-95">
+                <a href="/inscription" className="cta-pulse rounded-full bg-gradient-ocean text-primary-foreground px-7 py-3.5 font-semibold shadow-pop hover:scale-105 transition active:scale-95">
   Réserver ma place 
 </a>
                 <a href="#programme" className="rounded-full bg-white text-foreground px-7 py-3.5 font-semibold border border-border hover:bg-muted transition active:scale-95">
