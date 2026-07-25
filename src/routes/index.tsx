@@ -275,6 +275,65 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
   );
 }
 
+/* ─── Modal Offre (prix de la formation) ─────────────────────────────────── */
+function OfferModal({ closing, onClose }: { closing: boolean; onClose: () => void }) {
+  return (
+    <div
+      className={`fixed inset-0 z-[9998] flex items-center justify-center px-4 transition-opacity duration-300 ${
+        closing ? "opacity-0" : "opacity-100"
+      }`}
+      style={{ background: "rgba(15, 23, 42, 0.65)" }}
+      onClick={onClose}
+    >
+      <style>{`
+        @keyframes offer-pop-in {
+          0%   { transform: scale(0) rotate(-18deg); opacity: 0; }
+          55%  { transform: scale(1.12) rotate(6deg); opacity: 1; }
+          75%  { transform: scale(0.95) rotate(-3deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+        @keyframes offer-roll-out {
+          0%   { transform: scale(1) rotate(0deg) translateY(0); opacity: 1; }
+          100% { transform: scale(0.15) rotate(720deg) translateY(140px); opacity: 0; }
+        }
+        @keyframes offer-close-btn-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.12); }
+        }
+        .offer-pop-in { animation: offer-pop-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        .offer-roll-out { animation: offer-roll-out 0.6s ease-in forwards; }
+        .offer-close-btn { animation: offer-close-btn-pulse 1.4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .offer-pop-in, .offer-roll-out, .offer-close-btn { animation: none; }
+        }
+      `}</style>
+
+      <div
+        className={`relative max-w-xs sm:max-w-sm w-full ${closing ? "offer-roll-out" : "offer-pop-in"}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Bouton fermer — icône rouge */}
+        <button
+          onClick={onClose}
+          aria-label="Fermer l'offre"
+          className="offer-close-btn absolute -top-3 -right-3 z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 active:scale-90 transition-colors touch-manipulation"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <img
+          src="/offer.svg"
+          alt="Offre spéciale — prix du Bootcamp Amphix"
+          className="w-full h-auto rounded-2xl shadow-2xl select-none"
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Index() {
   const [showSplash, setShowSplash] = useState(() => {
     // On n'affiche l'écran de démarrage qu'une seule fois par session,
@@ -284,6 +343,9 @@ function Index() {
   });
     const [showForm, setShowForm] = useState(false);  // ← AJOUTE CETTE LIGNE
 
+  // Modal "offre" (prix de la formation) — apparaît 3s après le chargement
+  const [offerState, setOfferState] = useState<"hidden" | "visible" | "closing">("hidden");
+
   const heroParallax = useParallax(0.3);
   const campFireParallax = useParallax(-0.2);
   const rewardsParallax = useParallax(0.15);
@@ -292,6 +354,26 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const handleSplashComplete = () => {
     sessionStorage.setItem("amphix_splash_seen", "1");
     setShowSplash(false);
+  };
+
+  // Affiche le modal "offre" 3 secondes après la fin du chargement (une seule fois par session)
+  useEffect(() => {
+    if (showSplash) return;
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem("amphix_offer_seen") === "1") return;
+
+    const timer = setTimeout(() => {
+      sessionStorage.setItem("amphix_offer_seen", "1");
+      setOfferState("visible");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [showSplash]);
+
+  const handleCloseOffer = () => {
+    setOfferState("closing");
+    // Laisse le temps à l'animation "roulement" de se jouer avant de retirer le modal
+    setTimeout(() => setOfferState("hidden"), 600);
   };
 
   useEffect(() => {
@@ -313,6 +395,10 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   return (
     <>
       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+
+      {offerState !== "hidden" && (
+        <OfferModal closing={offerState === "closing"} onClose={handleCloseOffer} />
+      )}
 
       <main className={`min-h-screen bg-background overflow-x-hidden transition-opacity duration-500 ${showSplash ? "opacity-0" : "opacity-100"}`}>
         {/* Navigation fluide vers les ancres (#programme, #inscription...) */}
