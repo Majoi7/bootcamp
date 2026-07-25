@@ -279,18 +279,24 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 function OfferModal({ closing, onClose }: { closing: boolean; onClose: () => void }) {
   return (
     <div
-      className={`fixed inset-0 z-[9998] flex items-center justify-center px-4 transition-opacity duration-300 ${
-        closing ? "opacity-0" : "opacity-100"
+      className={`fixed inset-0 z-[9998] flex items-center justify-center px-4 ${
+        closing ? "offer-backdrop-out" : "offer-backdrop-in"
       }`}
       style={{ background: "rgba(15, 23, 42, 0.65)" }}
       onClick={onClose}
     >
       <style>{`
+        @keyframes offer-backdrop-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes offer-backdrop-out {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
         @keyframes offer-pop-in {
-          0%   { transform: scale(0) rotate(-18deg); opacity: 0; }
-          55%  { transform: scale(1.12) rotate(6deg); opacity: 1; }
-          75%  { transform: scale(0.95) rotate(-3deg); }
-          100% { transform: scale(1) rotate(0deg); }
+          0% { transform: scale(0.4) rotate(-8deg); opacity: 0; }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
         @keyframes offer-roll-out {
           0%   { transform: scale(1) rotate(0deg) translateY(0); opacity: 1; }
@@ -300,11 +306,23 @@ function OfferModal({ closing, onClose }: { closing: boolean; onClose: () => voi
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.12); }
         }
-        .offer-pop-in { animation: offer-pop-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-        .offer-roll-out { animation: offer-roll-out 0.6s ease-in forwards; }
+        .offer-backdrop-in { animation: offer-backdrop-in 0.6s ease-out both; }
+        .offer-backdrop-out { animation: offer-backdrop-out 0.5s ease-in both; }
+        .offer-pop-in {
+          animation: offer-pop-in 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+          will-change: transform, opacity;
+          backface-visibility: hidden;
+        }
+        .offer-roll-out {
+          animation: offer-roll-out 0.6s ease-in forwards;
+          will-change: transform, opacity;
+          backface-visibility: hidden;
+        }
         .offer-close-btn { animation: offer-close-btn-pulse 1.4s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) {
-          .offer-pop-in, .offer-roll-out, .offer-close-btn { animation: none; }
+          .offer-backdrop-in, .offer-backdrop-out, .offer-pop-in, .offer-roll-out, .offer-close-btn {
+            animation: none;
+          }
         }
       `}</style>
 
