@@ -37,19 +37,15 @@ export const Route = createFileRoute("/inscription")({
 function QuestionnairePage() {
   const [participantId, setParticipantId] = useState<string | null>(null);
 
-  // Étape courante : formulaire d'accueil → page paiement
-  const [stage, setStage] = useState<"lead" | "payment">("lead");
+  // Étape courante : formulaire d'accueil → page "rejoindre la communauté"
+  const [stage, setStage] = useState<"lead" | "community">("lead");
   const [leadName, setLeadName] = useState("");
+  const [leadCountryCode, setLeadCountryCode] = useState("+229"); // Bénin par défaut
   const [leadWhatsapp, setLeadWhatsapp] = useState("");
   const [leadError, setLeadError] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
 
-  // Page paiement : case à cocher (politique de confidentialité) + modal
-  const [agreedToPolicy, setAgreedToPolicy] = useState(false);
-  const [showPolicy, setShowPolicy] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
-
-  const KKIAPAY_URL = "https://direct.kkiapay.me/43000/Inscription%20Bootcamp-_UOG2Nl9p";
+  const WHATSAPP_COMMUNITY_URL = "https://chat.whatsapp.com/Be0nwy6eOtt2bgqmZICx7f";
 
   // Compteur d'inscrits — urgence (global, partagé entre tous les visiteurs via Supabase)
   const TOTAL_PLACES = 200;
@@ -62,7 +58,7 @@ function QuestionnairePage() {
     const pid = params.get("pid") || localStorage.getItem("amphix_participant_id");
     if (pid) {
       setParticipantId(pid);
-      setStage("payment");
+      setStage("community");
     }
   }, []);
 
@@ -104,21 +100,6 @@ function QuestionnairePage() {
     };
   }, []);
 
-  // Incrémente le compteur d'inscrits (global, Supabase) à chaque clic sur "Payer"
-  const incrementRegisteredCount = async () => {
-    // Mise à jour optimiste immédiate côté UI
-    setRegisteredCount((prev) => Math.min(prev + 1, TOTAL_PLACES));
-
-    try {
-      const { data, error } = await supabase.rpc("increment_registered_count");
-      if (!error && typeof data === "number") {
-        setRegisteredCount(Math.min(Math.max(data, INITIAL_REGISTERED), TOTAL_PLACES));
-      }
-    } catch (e) {
-      console.error("Erreur incrémentation compteur inscrits:", e);
-    }
-  };
-
   // Envoie un email avec les infos du lead (Nom + WhatsApp) via EmailJS
   const sendLeadEmail = async (name: string, whatsapp: string) => {
     try {
@@ -146,6 +127,7 @@ function QuestionnairePage() {
     setLeadError("");
     setIsSubmittingLead(true);
 
+    const fullWhatsapp = `${leadCountryCode} ${leadWhatsapp.trim()}`;
     const newParticipantId = participantId || crypto.randomUUID();
     setParticipantId(newParticipantId);
     localStorage.setItem("amphix_participant_id", newParticipantId);
@@ -154,47 +136,41 @@ function QuestionnairePage() {
       await supabase.from("form_leads").insert({
         id: newParticipantId,
         full_name: leadName.trim(),
-        whatsapp: leadWhatsapp.trim(),
+        whatsapp: fullWhatsapp,
       });
 
       await supabase.from("tracking_events").insert({
         event_type: "lead_form_submitted",
         participant_id: newParticipantId,
-        metadata: { full_name: leadName.trim(), whatsapp: leadWhatsapp.trim() },
+        metadata: { full_name: leadName.trim(), whatsapp: fullWhatsapp },
       });
     } catch (e) {
       console.error("Erreur sauvegarde lead:", e);
     }
 
     // Email de notification à l'équipe avec les coordonnées du prospect
-    await sendLeadEmail(leadName.trim(), leadWhatsapp.trim());
+    await sendLeadEmail(leadName.trim(), fullWhatsapp);
 
     trackLead();
 
     setIsSubmittingLead(false);
-    setStage("payment");
+    setStage("community");
   };
 
-  // Clic sur "Passer au paiement" → tracking puis redirection vers KKiaPay
-  const handlePaymentClick = async () => {
-    if (!agreedToPolicy || isRedirecting) return;
-    setIsRedirecting(true);
-
+  // Clic sur "Rejoindre la communauté" → tracking puis ouverture du groupe WhatsApp
+  const handleJoinCommunityClick = async () => {
     trackContact(); // ← événement Meta
-    await incrementRegisteredCount(); // ← incrémente le compteur global (Supabase)
 
     if (participantId) {
       try {
         await supabase.from("tracking_events").insert({
-          event_type: "payment_button_click",
+          event_type: "community_join_click",
           participant_id: participantId,
         });
       } catch (e) {
-        console.error("Erreur tracking paiement:", e);
+        console.error("Erreur tracking communauté:", e);
       }
     }
-
-    window.location.href = KKIAPAY_URL;
   };
   /* ─── Formulaire d'accueil ──────────────────────────────────────────────── */
   if (stage === "lead") {
@@ -202,6 +178,8 @@ function QuestionnairePage() {
       <LeadFormScreen
         leadName={leadName}
         setLeadName={setLeadName}
+        leadCountryCode={leadCountryCode}
+        setLeadCountryCode={setLeadCountryCode}
         leadWhatsapp={leadWhatsapp}
         setLeadWhatsapp={setLeadWhatsapp}
         leadError={leadError}
@@ -211,17 +189,13 @@ function QuestionnairePage() {
     );
   }
 
-  /* ─── Page Paiement ────────────────────────────────────────────────────── */
+  /* ─── Page "Rejoindre la communauté" (en attendant le paiement) ──────────── */
   return (
-    <PaymentInfoScreen
+    <CommunityWaitScreen
       registeredCount={registeredCount}
       totalPlaces={TOTAL_PLACES}
-      agreedToPolicy={agreedToPolicy}
-      setAgreedToPolicy={setAgreedToPolicy}
-      showPolicy={showPolicy}
-      setShowPolicy={setShowPolicy}
-      isRedirecting={isRedirecting}
-      onPay={handlePaymentClick}
+      whatsappUrl={WHATSAPP_COMMUNITY_URL}
+      onJoinClick={handleJoinCommunityClick}
     />
   );
 }
@@ -233,6 +207,8 @@ function QuestionnairePage() {
 function LeadFormScreen({
   leadName,
   setLeadName,
+  leadCountryCode,
+  setLeadCountryCode,
   leadWhatsapp,
   setLeadWhatsapp,
   leadError,
@@ -241,6 +217,8 @@ function LeadFormScreen({
 }: {
   leadName: string;
   setLeadName: (v: string) => void;
+  leadCountryCode: string;
+  setLeadCountryCode: (v: string) => void;
   leadWhatsapp: string;
   setLeadWhatsapp: (v: string) => void;
   leadError: string;
@@ -294,13 +272,27 @@ function LeadFormScreen({
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
                 Numéro WhatsApp
               </label>
-              <input
-                type="tel"
-                value={leadWhatsapp}
-                onChange={(e) => setLeadWhatsapp(e.target.value)}
-                placeholder="Ex : 90 00 00 00"
-                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 sm:py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
-              />
+              <div className="flex gap-2">
+                <select
+                  value={leadCountryCode}
+                  onChange={(e) => setLeadCountryCode(e.target.value)}
+                  className="w-[112px] sm:w-[128px] shrink-0 rounded-lg border border-gray-200 px-2 py-2.5 sm:py-3 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
+                >
+                  <option value="+229">🇧🇯 +229</option>
+                  <option value="+221">🇸🇳 +221</option>
+                  <option value="+225">🇨🇮 +225</option>
+                </select>
+                <input
+                  type="tel"
+                  value={leadWhatsapp}
+                  onChange={(e) => setLeadWhatsapp(e.target.value)}
+                  placeholder="Ex : 90 00 00 00"
+                  className="flex-1 min-w-0 rounded-lg border border-gray-200 px-4 py-2.5 sm:py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
+                />
+              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                Bénin (+229) · Sénégal (+221) · Côte d'Ivoire (+225)
+              </p>
             </div>
 
             {leadError && (
@@ -332,25 +324,18 @@ function LeadFormScreen({
   );
 }
 
-/* ─── Page Paiement (PC/Internet + case à cocher + bouton KKiaPay) ────────── */
-function PaymentInfoScreen({
+/* ─── Page "Rejoindre la communauté" (en attendant qu'un membre de l'équipe
+   vienne aider au paiement) — garde la barre de progression/urgence ────────── */
+function CommunityWaitScreen({
   registeredCount,
   totalPlaces,
-  agreedToPolicy,
-  setAgreedToPolicy,
-  showPolicy,
-  setShowPolicy,
-  isRedirecting,
-  onPay,
+  whatsappUrl,
+  onJoinClick,
 }: {
   registeredCount: number;
   totalPlaces: number;
-  agreedToPolicy: boolean;
-  setAgreedToPolicy: (v: boolean) => void;
-  showPolicy: boolean;
-  setShowPolicy: (v: boolean) => void;
-  isRedirecting: boolean;
-  onPay: () => void;
+  whatsappUrl: string;
+  onJoinClick: () => void;
 }) {
   return (
     <main className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12 font-['Inter',sans-serif]">
@@ -424,12 +409,12 @@ function PaymentInfoScreen({
           className="scale-75 sm:scale-90 md:scale-100 origin-center"
         >
           <HandWrittenTitle
-            title="Encore une étape !"
-            subtitle="Finalise ton inscription pour réserver définitivement ta place."
+            title="Ta demande est bien reçue !"
+            subtitle="Rejoins dès maintenant la communauté en attendant qu'on t'aide à finaliser ton paiement."
           />
         </motion.div>
 
-        {/* Prérequis PC / Internet */}
+        {/* Message d'attente / accompagnement */}
         <motion.div
           className="rounded-2xl bg-sky-50 border border-sky-200 p-4 sm:p-6 mb-6 sm:mb-8 text-left"
           initial={{ opacity: 0, y: 20 }}
@@ -437,125 +422,51 @@ function PaymentInfoScreen({
           transition={{ delay: 0.3, duration: 0.8 }}
         >
           <h3 className="font-semibold text-gray-900 mb-3 text-sm sm:text-base">
-            Avant de continuer, assure-toi d'avoir :
+            En attendant, rejoins la communauté Amphix
           </h3>
           <ul className="space-y-2 text-gray-600 text-xs sm:text-sm">
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Un ordinateur (ou la possibilité d'en emprunter un)</span>
+              <span>Clique sur le bouton "Rejoindre la communauté" ci-dessous</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-sky-500 mt-0.5 shrink-0">›</span>
-              <span>Une connexion internet</span>
+              <span>
+                <strong>Un membre de l'équipe Amphix viendra t'aider directement</strong> à
+                finaliser ton paiement
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-sky-500 mt-0.5 shrink-0">›</span>
+              <span>Ta place sera réservée dès que ton paiement sera validé</span>
             </li>
           </ul>
-          <p className="mt-4 text-gray-700 text-xs sm:text-sm leading-relaxed">
-            Si c'est ton cas, tu peux passer au paiement dès maintenant.{" "}
-            <strong className="text-gray-900">
-              N'oublie pas de faire une capture d'écran de ton reçu après le paiement
-            </strong>
-            , elle te sera demandée pour valider ton inscription.
-          </p>
         </motion.div>
 
-        {/* Case à cocher — politique de confidentialité */}
-        <motion.div
-          className="mb-6 sm:mb-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.8 }}
-        >
-          <label className="flex items-start gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={agreedToPolicy}
-              onChange={(e) => setAgreedToPolicy(e.target.checked)}
-              className="mt-0.5 h-4 w-4 sm:h-5 sm:w-5 shrink-0 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20"
-            />
-            <span className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-              Je suis d'accord avec la{" "}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowPolicy(true);
-                }}
-                className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
-              >
-                politique de confidentialité
-              </button>
-            </span>
-          </label>
-        </motion.div>
-
-        {/* Bouton Passer au paiement */}
+        {/* Bouton Rejoindre la communauté — CTA fort */}
         <motion.div
           className="text-center"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.8 }}
+          transition={{ delay: 0.6, duration: 0.8 }}
         >
-          <motion.button
-            onClick={onPay}
-            disabled={!agreedToPolicy || isRedirecting}
-            whileTap={{ scale: 0.97 }}
-            className={`inline-flex items-center justify-center gap-2 rounded-full px-6 sm:px-8 py-3 sm:py-4 font-semibold text-base sm:text-lg transition-all duration-200 shadow-lg w-full sm:w-auto sm:mx-auto touch-manipulation
-              ${!agreedToPolicy || isRedirecting
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-gray-900 text-white hover:bg-gray-800 hover:scale-105 active:scale-95"
-              }`}
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onJoinClick}
+            className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-6 sm:px-8 py-3 sm:py-4 font-semibold text-base sm:text-lg hover:bg-[#128C7E] transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg w-full sm:w-auto sm:mx-auto touch-manipulation"
           >
-            {isRedirecting ? (
-              <>
-                <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Redirection...</span>
-              </>
-            ) : (
-              <span>Passer au paiement</span>
-            )}
-          </motion.button>
-          {!agreedToPolicy && (
-            <p className="mt-3 text-xs text-gray-400">
-              Coche la case ci-dessus pour activer le bouton de paiement.
-            </p>
-          )}
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+            </svg>
+            <span>Rejoindre la communauté</span>
+          </a>
+          <p className="mt-3 text-xs text-gray-400">
+            Tu seras redirigé vers WhatsApp pour rejoindre la communauté Amphix
+          </p>
         </motion.div>
       </div>
-
-      {/* Modal — Politique de confidentialité */}
-      {showPolicy && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-          onClick={() => setShowPolicy(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.2 }}
-            className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
-              Politique de confidentialité
-            </h3>
-            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-4">
-              En procédant au paiement de tes frais d'inscription au Bootcamp Amphix, tu
-              reconnais et acceptes qu'<strong className="text-gray-900">aucun remboursement ne sera possible après le paiement</strong>,
-              quel qu'en soit le motif. Assure-toi d'avoir bien pris connaissance des
-              prérequis (ordinateur, connexion internet) avant de valider ton paiement.
-            </p>
-            <button
-              onClick={() => setShowPolicy(false)}
-              className="w-full rounded-lg bg-gray-900 text-white px-4 py-2.5 text-sm font-medium hover:bg-gray-800 transition-colors"
-            >
-              J'ai compris
-            </button>
-          </motion.div>
-        </div>
-      )}
     </main>
   );
 }
