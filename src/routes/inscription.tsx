@@ -37,8 +37,14 @@ export const Route = createFileRoute("/inscription")({
 function QuestionnairePage() {
   const [participantId, setParticipantId] = useState<string | null>(null);
 
-  // Étape courante : formulaire d'accueil → page "rejoindre la communauté"
-  const [stage, setStage] = useState<"lead" | "community">("lead");
+  // Étape courante : questions de qualification → formulaire d'accueil → page "rejoindre la communauté"
+  const [stage, setStage] = useState<"qualify" | "lead" | "community">("qualify");
+
+  // 3 questions de qualification (PC, internet, frais d'inscription)
+  const [hasComputer, setHasComputer] = useState<"oui" | "non" | null>(null);
+  const [hasInternet, setHasInternet] = useState<"oui" | "non" | null>(null);
+  const [canPay, setCanPay] = useState<"oui" | "non" | null>(null);
+  const [qualifyError, setQualifyError] = useState("");
   const [leadName, setLeadName] = useState("");
   const [leadCountryCode, setLeadCountryCode] = useState("+229"); // Bénin par défaut
   const [leadWhatsapp, setLeadWhatsapp] = useState("");
@@ -172,6 +178,34 @@ function QuestionnairePage() {
       }
     }
   };
+  // Validation des 3 questions de qualification
+  const handleQualifyContinue = () => {
+    if (hasComputer === "oui" && hasInternet === "oui" && canPay === "oui") {
+      setQualifyError("");
+      setStage("lead");
+      return;
+    }
+    setQualifyError(
+      "Ces trois éléments sont indispensables pour participer au Bootcamp. Merci de répondre « Oui » à chacun pour continuer."
+    );
+  };
+
+  /* ─── Questions de qualification ──────────────────────────────────────── */
+  if (stage === "qualify") {
+    return (
+      <QualifyScreen
+        hasComputer={hasComputer}
+        setHasComputer={setHasComputer}
+        hasInternet={hasInternet}
+        setHasInternet={setHasInternet}
+        canPay={canPay}
+        setCanPay={setCanPay}
+        qualifyError={qualifyError}
+        onContinue={handleQualifyContinue}
+      />
+    );
+  }
+
   /* ─── Formulaire d'accueil ──────────────────────────────────────────────── */
   if (stage === "lead") {
     return (
@@ -204,6 +238,127 @@ function QuestionnairePage() {
 /* Défini en dehors de QuestionnairePage : sinon React le recrée à chaque
    frappe et démonte/remonte le formulaire (perte de focus, effet "ça se
    réactualise"). */
+/* ─── Questions de qualification (PC, Internet, Frais d'inscription) ─────── */
+/* Défini en dehors de QuestionnairePage : sinon React le recrée à chaque
+   clic et démonte/remonte l'écran. */
+function QualifyScreen({
+  hasComputer,
+  setHasComputer,
+  hasInternet,
+  setHasInternet,
+  canPay,
+  setCanPay,
+  qualifyError,
+  onContinue,
+}: {
+  hasComputer: "oui" | "non" | null;
+  setHasComputer: (v: "oui" | "non") => void;
+  hasInternet: "oui" | "non" | null;
+  setHasInternet: (v: "oui" | "non") => void;
+  canPay: "oui" | "non" | null;
+  setCanPay: (v: "oui" | "non") => void;
+  qualifyError: string;
+  onContinue: () => void;
+}) {
+  const questions: {
+    label: string;
+    value: "oui" | "non" | null;
+    setValue: (v: "oui" | "non") => void;
+  }[] = [
+    { label: "As-tu un ordinateur ?", value: hasComputer, setValue: setHasComputer },
+    { label: "As-tu une connexion Internet ?", value: hasInternet, setValue: setHasInternet },
+    {
+      label: "Es-tu prêt(e) à payer les frais d'inscription de 10 000 F ?",
+      value: canPay,
+      setValue: setCanPay,
+    },
+  ];
+
+  return (
+    <main className="min-h-screen bg-white font-['Inter',sans-serif] flex flex-col items-center justify-center px-4 sm:px-6 py-10">
+      <div className="max-w-md w-full">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1 text-center">
+            Pour participer au Bootcamp, il faut :
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8 text-center">
+            Réponds honnêtement à ces 3 questions avant de continuer.
+          </p>
+        </motion.div>
+
+        <div className="space-y-5">
+          {questions.map((q, i) => (
+            <motion.div
+              key={q.label}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.1, duration: 0.5 }}
+              className={`rounded-2xl border p-4 sm:p-5 transition-colors ${
+                qualifyError && q.value !== "oui"
+                  ? "border-red-300 bg-red-50"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <p className="text-sm sm:text-base font-medium text-gray-900 mb-3">
+                {i + 1}. {q.label}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => q.setValue("oui")}
+                  className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors touch-manipulation ${
+                    q.value === "oui"
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
+                  }`}
+                >
+                  Oui
+                </button>
+                <button
+                  type="button"
+                  onClick={() => q.setValue("non")}
+                  className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors touch-manipulation ${
+                    q.value === "non"
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
+                  }`}
+                >
+                  Non
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {qualifyError && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-5 rounded-xl bg-red-50 border border-red-200 p-3 sm:p-4"
+          >
+            <p className="text-xs sm:text-sm text-red-600 leading-relaxed">
+              ⚠️ {qualifyError}
+            </p>
+          </motion.div>
+        )}
+
+        <motion.button
+          onClick={onContinue}
+          whileTap={{ scale: 0.97 }}
+          className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 text-white px-6 py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-gray-800 transition-all duration-200 shadow-md hover:shadow-lg touch-manipulation"
+        >
+          <span>Continuer</span>
+        </motion.button>
+      </div>
+    </main>
+  );
+}
+
+
 function LeadFormScreen({
   leadName,
   setLeadName,

@@ -463,7 +463,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
                     className="flex items-center gap-2 px-4 sm:px-6 text-[11px] sm:text-sm md:text-base font-semibold uppercase tracking-wide text-white"
                   >
                     <span aria-hidden="true">⚡</span>
-                  Dernière vague des inscriptions — Fin vendredi 31 juillet 2026
+                      Dernière vague des inscriptions — Fin vendredi 31 juillet 2026
                     <span className="mx-2 text-white/50">•</span>
                   </span>
                 ))}
