@@ -1,6 +1,6 @@
 // src/routes/admin.tsx
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/admin")({
@@ -361,6 +361,7 @@ function ProtectedAdminDashboard() {
 /* ─── Composant Admin ─── */
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [cours, setCours] = useState<Cours[]>([]);
   const [professeurs, setProfesseurs] = useState<Professeur[]>([]);
@@ -617,9 +618,25 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+    <div className="min-h-screen w-full max-w-full bg-slate-50 flex font-sans text-slate-900 overflow-x-hidden">
+      {/* ═══ OVERLAY MOBILE ═══ */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* ═══ SIDEBAR ═══ */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen z-30">
+      <aside
+        className={[
+          "w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col",
+          "fixed lg:sticky top-0 left-0 h-screen z-40",
+          "transition-transform duration-300 ease-out",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+          "lg:translate-x-0",
+        ].join(" ")}
+      >
         <div className="p-6 border-b border-slate-200 flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-extrabold text-sm">
             A
@@ -628,6 +645,15 @@ function AdminDashboard() {
           <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
             Admin
           </span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="ml-auto lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5">
@@ -637,7 +663,10 @@ function AdminDashboard() {
           {navItems.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                setActiveTab(tab.key);
+                setSidebarOpen(false);
+              }}
               className={[
                 "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200",
                 activeTab === tab.key
@@ -666,21 +695,31 @@ function AdminDashboard() {
       </aside>
 
       {/* ═══ MAIN ═══ */}
-      <main className="flex-1 min-w-0 overflow-x-hidden">
+      <main className="flex-1 min-w-0 w-full overflow-x-hidden">
         {/* TOP BAR */}
-        <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-7 sticky top-0 z-20">
-          <div className="flex items-center gap-4">
-            <span className="text-[13px] text-slate-500 font-medium">
+        <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-7 sticky top-0 z-20">
+          <div className="flex items-center gap-4 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden shrink-0 w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <span className="text-[13px] text-slate-500 font-medium truncate">
               Amphix Admin / <strong className="text-slate-900">Dashboard</strong>
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-100 rounded-xl px-3.5 py-2 border border-transparent focus-within:border-indigo-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-xl px-3.5 py-2 border border-transparent focus-within:border-indigo-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
               {Icons.search}
               <input
                 type="text"
                 placeholder="Rechercher..."
-                className="bg-transparent border-none outline-none text-[13px] w-48 text-slate-900 placeholder-slate-400"
+                className="bg-transparent border-none outline-none text-[13px] w-36 md:w-48 text-slate-900 placeholder-slate-400"
               />
             </div>
             <button className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition relative">
@@ -882,7 +921,7 @@ function AdminDashboard() {
         )}
         {activeTab === "programme" && (
           <section className="px-7 py-6 pb-20 max-w-6xl">
-            <ProgrammeTab cours={cours} professeurs={professeurs} onRefresh={fetchSessions} />
+            <ProgrammeTab cours={cours} professeurs={professeurs} sessions={sessions} onRefresh={fetchSessions} />
           </section>
         )}
         {activeTab === "calendrier" && (
@@ -1505,14 +1544,66 @@ function ProfesseursTab({ professeurs, onRefresh }: { professeurs: Professeur[];
   const [nom, setNom] = useState("");
   const [prenoms, setPrenoms] = useState("");
   const [specialite, setSpecialite] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
 
   const resetForm = () => {
     setNom("");
     setPrenoms("");
     setSpecialite("");
+    setPhotoUrl(null);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setPhotoError("");
     setEditingId(null);
     setShowForm(false);
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Merci de choisir une image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError("L'image doit faire moins de 5 Mo.");
+      return;
+    }
+
+    setPhotoError("");
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  // Upload la photo choisie vers Supabase Storage (bucket public "avatars")
+  // et retourne son URL publique.
+  const uploadPhotoIfNeeded = async (): Promise<string | null> => {
+    if (!photoFile) return photoUrl;
+    setUploadingPhoto(true);
+    try {
+      const ext = photoFile.name.split(".").pop() || "jpg";
+      const path = `prof-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, photoFile, { upsert: true, cacheControl: "3600" });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      return data.publicUrl;
+    } catch (err: any) {
+      setPhotoError(err?.message || "Échec de l'envoi de la photo.");
+      return null;
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1520,16 +1611,25 @@ function ProfesseursTab({ professeurs, onRefresh }: { professeurs: Professeur[];
     if (!nom.trim()) return;
     setLoading(true);
 
+    let finalPhotoUrl = photoUrl;
+    if (photoFile) {
+      finalPhotoUrl = await uploadPhotoIfNeeded();
+      if (!finalPhotoUrl) {
+        setLoading(false);
+        return; // échec de l'upload, on n'enregistre pas le professeur
+      }
+    }
+
     if (editingId) {
       const { error } = await supabase
         .from("professeurs")
-        .update({ nom, prenoms, specialite })
+        .update({ nom, prenoms, specialite, photo_url: finalPhotoUrl })
         .eq("id", editingId);
       if (!error) { resetForm(); onRefresh(); }
     } else {
       const { error } = await supabase
         .from("professeurs")
-        .insert({ nom, prenoms, specialite });
+        .insert({ nom, prenoms, specialite, photo_url: finalPhotoUrl });
       if (!error) { resetForm(); onRefresh(); }
     }
     setLoading(false);
@@ -1545,6 +1645,9 @@ function ProfesseursTab({ professeurs, onRefresh }: { professeurs: Professeur[];
     setNom(p.nom);
     setPrenoms(p.prenoms || "");
     setSpecialite(p.specialite || "");
+    setPhotoUrl(p.photo_url || null);
+    setPhotoFile(null);
+    setPhotoPreview(p.photo_url || null);
     setEditingId(p.id);
     setShowForm(true);
   };
@@ -1563,6 +1666,59 @@ function ProfesseursTab({ professeurs, onRefresh }: { professeurs: Professeur[];
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 animate-fade-in">
+          {photoError && (
+            <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3">
+              {photoError}
+            </div>
+          )}
+
+          {/* Photo de profil */}
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-extrabold text-xl overflow-hidden shrink-0 group"
+            >
+              {photoPreview ? (
+                <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <>{prenoms ? prenoms[0] : nom ? nom[0] : "?"}</>
+              )}
+              <div
+                className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${
+                  uploadingPhoto ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                }`}
+              >
+                {uploadingPhoto ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                )}
+              </div>
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoSelect}
+            />
+            <div>
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                className="text-sm font-semibold text-indigo-600 hover:underline"
+              >
+                {photoPreview ? "Changer la photo" : "Importer une photo"}
+              </button>
+              <p className="text-xs text-slate-400 mt-0.5">JPG, PNG — 5 Mo max</p>
+            </div>
+          </div>
+
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Nom *</label>
@@ -1581,9 +1737,9 @@ function ProfesseursTab({ professeurs, onRefresh }: { professeurs: Professeur[];
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100" />
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || uploadingPhoto}
               className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-4 py-3 font-semibold text-sm hover:brightness-110 transition active:scale-95 disabled:opacity-60">
-              {loading ? "..." : editingId ? "Modifier" : "Ajouter"}
+              {loading || uploadingPhoto ? "..." : editingId ? "Modifier" : "Ajouter"}
             </button>
             {editingId && (
               <button type="button" onClick={resetForm}
@@ -1597,8 +1753,12 @@ function ProfesseursTab({ professeurs, onRefresh }: { professeurs: Professeur[];
         {professeurs.map((p) => (
           <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group">
             <div className="flex items-start justify-between mb-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-extrabold text-lg">
-                {p.prenoms ? p.prenoms[0] : p.nom[0]}
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-extrabold text-lg overflow-hidden shrink-0">
+                {p.photo_url ? (
+                  <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <>{p.prenoms ? p.prenoms[0] : p.nom[0]}</>
+                )}
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => startEdit(p)} className="p-1.5 rounded-lg hover:bg-slate-100 transition text-slate-400 hover:text-indigo-500">
@@ -1624,7 +1784,7 @@ function ProfesseursTab({ professeurs, onRefresh }: { professeurs: Professeur[];
 /* ═══════════════════════════════════════════════════
    TAB: PROGRAMME (planification des sessions)
    ═══════════════════════════════════════════════════ */
-function ProgrammeTab({ cours, professeurs, onRefresh }: { cours: Cours[]; professeurs: Professeur[]; onRefresh: () => void }) {
+function ProgrammeTab({ cours, professeurs, sessions, onRefresh }: { cours: Cours[]; professeurs: Professeur[]; sessions: Session[]; onRefresh: () => void }) {
   const [coursId, setCoursId] = useState("");
   const [professeurId, setProfesseurId] = useState("");
   const [date, setDate] = useState("");
@@ -1633,6 +1793,11 @@ function ProgrammeTab({ cours, professeurs, onRefresh }: { cours: Cours[]; profe
   const [salle, setSalle] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Filtres de la liste des sessions programmées
+  const [filterCours, setFilterCours] = useState("");
+  const [filterProf, setFilterProf] = useState("");
+  const [filterDate, setFilterDate] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1661,6 +1826,23 @@ function ProgrammeTab({ cours, professeurs, onRefresh }: { cours: Cours[]; profe
     }
     setLoading(false);
   };
+
+  const handleDeleteSession = async (id: string) => {
+    if (!confirm("Supprimer cette session programmée ?")) return;
+    const { error } = await supabase.from("sessions").delete().eq("id", id);
+    if (!error) onRefresh();
+  };
+
+  const filteredSessions = useMemo(() => {
+    return sessions.filter((s) => {
+      const matchCours = !filterCours || s.cours_id === filterCours;
+      const matchProf = !filterProf || s.professeur_id === filterProf;
+      const matchDate = !filterDate || s.date === filterDate;
+      return matchCours && matchProf && matchDate;
+    });
+  }, [sessions, filterCours, filterProf, filterDate]);
+
+  const hasActiveFilters = !!filterCours || !!filterProf || !!filterDate;
 
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
@@ -1762,6 +1944,93 @@ function ProgrammeTab({ cours, professeurs, onRefresh }: { cours: Cours[]; profe
           {loading ? "Programmation..." : "Programmer la session"}
         </button>
       </form>
+
+      {/* ── Liste des sessions programmées + filtres ── */}
+      <div className="pt-2">
+        <h3 className="text-lg font-extrabold tracking-tight mb-4">Sessions programmées</h3>
+
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <select
+            value={filterCours}
+            onChange={(e) => setFilterCours(e.target.value)}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option value="">Tous les cours</option>
+            {cours.map((c) => (
+              <option key={c.id} value={c.id}>{c.titre}</option>
+            ))}
+          </select>
+          <select
+            value={filterProf}
+            onChange={(e) => setFilterProf(e.target.value)}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option value="">Tous les professeurs</option>
+            {professeurs.map((p) => (
+              <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          />
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setFilterCours(""); setFilterProf(""); setFilterDate(""); }}
+              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-slate-100 transition"
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {filteredSessions.map((s) => {
+            const c = cours.find((c) => c.id === s.cours_id);
+            const p = professeurs.find((p) => p.id === s.professeur_id);
+            return (
+              <div
+                key={s.id}
+                className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4"
+              >
+                <div
+                  className="w-1.5 self-stretch rounded-full flex-shrink-0"
+                  style={{ backgroundColor: c?.couleur || "#6366f1" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-sm">{c?.titre || "Cours supprimé"}</h4>
+                    <span className="text-xs text-slate-400">
+                      {new Date(s.date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {s.heure_debut.slice(0, 5)} – {s.heure_fin.slice(0, 5)}
+                    {s.salle && ` · ${s.salle}`}
+                    {p && ` · ${p.prenoms} ${p.nom}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDeleteSession(s.id)}
+                  className="p-2 rounded-lg hover:bg-red-50 transition text-slate-400 hover:text-red-500 flex-shrink-0"
+                  aria-label="Supprimer la session"
+                >
+                  {Icons.trash}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {filteredSessions.length === 0 && sessions.length > 0 && (
+          <p className="text-center text-slate-400 py-10">Aucune session ne correspond à ces filtres.</p>
+        )}
+        {sessions.length === 0 && (
+          <p className="text-center text-slate-400 py-10">Aucune session programmée pour l'instant.</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -2057,6 +2326,22 @@ function CalendrierAdminTab({ sessions, cours, professeurs, onRefresh }: {
 /* ═══════════════════════════════════════════════════
    TAB: ENREGISTREMENTS (liens Google Meet des cours enregistrés)
    ═══════════════════════════════════════════════════ */
+// Extrait l'ID d'une vidéo YouTube depuis différents formats d'URL possibles
+// pour générer sa miniature officielle.
+function getYouTubeThumbnail(url: string): string | null {
+  const patterns = [
+    /youtube\.com\/watch\?v=([^&\n?#]+)/,
+    /youtu\.be\/([^&\n?#]+)/,
+    /youtube\.com\/embed\/([^&\n?#]+)/,
+    /youtube\.com\/live\/([^&\n?#]+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m?.[1]) return `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`;
+  }
+  return null;
+}
+
 function EnregistrementsTab({
   enregistrements,
   cours,
@@ -2081,6 +2366,7 @@ function EnregistrementsTab({
 
   const [search, setSearch] = useState("");
   const [filterCours, setFilterCours] = useState("");
+  const [filterProf, setFilterProf] = useState("");
 
   const resetForm = () => {
     setTitre("");
@@ -2159,16 +2445,17 @@ function EnregistrementsTab({
     return enregistrements.filter((rec) => {
       const matchSearch = !search.trim() || rec.titre.toLowerCase().includes(search.trim().toLowerCase());
       const matchCours = !filterCours || rec.cours_id === filterCours;
-      return matchSearch && matchCours;
+      const matchProf = !filterProf || rec.professeur_id === filterProf;
+      return matchSearch && matchCours && matchProf;
     });
-  }, [enregistrements, search, filterCours]);
+  }, [enregistrements, search, filterCours, filterProf]);
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight">Enregistrements Google Meet</h2>
-          <p className="text-sm text-slate-500 mt-1">Centralisez les liens des sessions enregistrées pour que les participants puissent les revoir.</p>
+          <h2 className="text-2xl font-extrabold tracking-tight">Enregistrements vidéo (YouTube)</h2>
+          <p className="text-sm text-slate-500 mt-1">Centralisez les liens YouTube des sessions enregistrées pour que les participants puissent les revoir.</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(!showForm); }}
@@ -2197,17 +2484,17 @@ function EnregistrementsTab({
             />
           </div>
           <div>
-            <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Lien Google Meet / Drive *</label>
+            <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Lien YouTube *</label>
             <input
               type="url"
               value={lien}
               onChange={(e) => setLien(e.target.value)}
-              placeholder="https://drive.google.com/file/d/..."
+              placeholder="https://www.youtube.com/watch?v=..."
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
               required
             />
             <p className="text-xs text-slate-400 mt-1.5">
-              Astuce : dans Google Meet, les enregistrements sont automatiquement sauvegardés dans Google Drive (dossier "Meet Recordings"). Ouvrez le fichier et copiez son lien de partage ici.
+              Colle ici le lien de la vidéo YouTube (mise en ligne publique ou non répertoriée). La miniature s'affichera automatiquement.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -2300,61 +2587,79 @@ function EnregistrementsTab({
             <option key={c.id} value={c.id}>{c.titre}</option>
           ))}
         </select>
+        <select
+          value={filterProf}
+          onChange={(e) => setFilterProf(e.target.value)}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+        >
+          <option value="">Tous les professeurs</option>
+          {professeurs.map((p) => (
+            <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>
+          ))}
+        </select>
       </div>
 
       {/* Liste des enregistrements */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((rec) => (
-          <div key={rec.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex flex-col">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
+        {filtered.map((rec) => {
+          const thumbnail = getYouTubeThumbnail(rec.lien);
+          return (
+          <div key={rec.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex flex-col overflow-hidden">
+            {/* Miniature vidéo */}
+            <div className="relative w-full aspect-video bg-slate-100 overflow-hidden">
+              {thumbnail ? (
+                <img src={thumbnail} alt={rec.titre} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              ) : (
                 <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  className="w-full h-full flex items-center justify-center"
                   style={{ backgroundColor: (rec.cours?.couleur || "#6366f1") + "1a", color: rec.cours?.couleur || "#6366f1" }}
                 >
                   {Icons.video}
                 </div>
-                {rec.cours && (
-                  <span
-                    className="text-[11px] font-semibold px-2 py-1 rounded-full"
-                    style={{ backgroundColor: (rec.cours.couleur || "#6366f1") + "1a", color: rec.cours.couleur || "#6366f1" }}
-                  >
-                    {rec.cours.titre}
-                  </span>
-                )}
-              </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => startEdit(rec)} className="p-1.5 rounded-lg hover:bg-slate-100 transition text-slate-400 hover:text-indigo-500">
+              )}
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => startEdit(rec)} className="p-1.5 rounded-lg bg-white/90 hover:bg-white transition text-slate-500 hover:text-indigo-500 shadow">
                   {Icons.editBtn}
                 </button>
-                <button onClick={() => handleDelete(rec.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition text-slate-400 hover:text-red-500">
+                <button onClick={() => handleDelete(rec.id)} className="p-1.5 rounded-lg bg-white/90 hover:bg-white transition text-slate-500 hover:text-red-500 shadow">
                   {Icons.trash}
                 </button>
               </div>
+              {rec.cours && (
+                <span
+                  className="absolute bottom-2 left-2 text-[11px] font-semibold px-2 py-1 rounded-full bg-white/90"
+                  style={{ color: rec.cours.couleur || "#6366f1" }}
+                >
+                  {rec.cours.titre}
+                </span>
+              )}
             </div>
 
-            <h3 className="font-bold text-[15px] mb-1 leading-snug">{rec.titre}</h3>
+            <div className="p-5 flex flex-col flex-1">
+              <h3 className="font-bold text-[15px] mb-1 leading-snug">{rec.titre}</h3>
 
-            <div className="text-xs text-slate-500 space-y-0.5 mb-3">
-              <div>{new Date(rec.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</div>
-              {rec.professeur && <div>Par {rec.professeur.prenoms} {rec.professeur.nom}</div>}
+              <div className="text-xs text-slate-500 space-y-0.5 mb-3">
+                <div>{new Date(rec.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</div>
+                {rec.professeur && <div>Par {rec.professeur.prenoms} {rec.professeur.nom}</div>}
+              </div>
+
+              {rec.description && (
+                <p className="text-sm text-slate-500 line-clamp-2 mb-3">{rec.description}</p>
+              )}
+
+              <a
+                href={rec.lien}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-800 transition active:scale-95"
+              >
+                Voir sur YouTube
+                {Icons.externalLink}
+              </a>
             </div>
-
-            {rec.description && (
-              <p className="text-sm text-slate-500 line-clamp-2 mb-3">{rec.description}</p>
-            )}
-
-            <a
-              href={rec.lien}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-800 transition active:scale-95"
-            >
-              Voir l'enregistrement
-              {Icons.externalLink}
-            </a>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {filtered.length === 0 && enregistrements.length > 0 && (

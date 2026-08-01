@@ -337,7 +337,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
         `}</style>
 
         {/* BARRE D'URGENCE — Défilante, responsive */}
-        <div className="sticky top-0 z-40 w-full bg-gradient-to-r from-red-600 via-orange-600 to-red-600 overflow-hidden py-2 sm:py-2.5 shadow-md">
+         {/*<div className="sticky top-0 z-40 w-full bg-gradient-to-r from-red-600 via-orange-600 to-red-600 overflow-hidden py-2 sm:py-2.5 shadow-md">
           <style>{`
             @keyframes urgency-marquee-scroll {
               0% { transform: translateX(0); }
@@ -366,7 +366,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
               </div>
             ))}
           </div>
-        </div>
+        </div>*/}
 
         {/* HERO */}
         <section className="relative bg-gradient-hero overflow-hidden">
