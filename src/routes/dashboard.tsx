@@ -30,6 +30,7 @@ interface User {
   niveau_etudes: string;
   paye: boolean;
   montant_paye: number;
+  photo_url: string | null;
 }
 
 interface Cours {
@@ -72,6 +73,17 @@ interface Enregistrement {
 }
 
 type DashboardTab = "calendrier" | "cours" | "parametres";
+
+// Formate une date en "YYYY-MM-DD" en utilisant les composants LOCAUX
+// (jamais toISOString(), qui convertit en UTC et peut décaler la date
+// d'un jour selon le fuseau horaire — c'est ce qui causait le bug où
+// un cours du samedi s'affichait le dimanche).
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 /* ─── Icônes SVG professionnelles ─── */
 function IconCalendar({ className = "w-6 h-6" }: { className?: string }) {
@@ -389,9 +401,10 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
   const joursSemaine = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   const joursComplets = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
+  // Formate une date en "YYYY-MM-DD" en heure locale (voir toLocalDateStr en haut du fichier)
   const sessionsParJour = useMemo(() => {
     return visibleDays.map((jourDate) => {
-      const dateStr = jourDate.toISOString().split("T")[0];
+      const dateStr = toLocalDateStr(jourDate);
       return sessions.filter((s) => s.date === dateStr);
     });
   }, [sessions, visibleDays]);
@@ -655,7 +668,7 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
         key={visibleDays[0].toISOString()}
         className="hidden lg:block bg-card rounded-2xl border border-border shadow-soft overflow-hidden animate-fade-in"
       >
-        <div className="overflow-x-auto scrollbar-hide">
+        <div className="overflow-auto scrollbar-hide max-h-[calc(100vh-260px)]">
           <div className="min-w-[750px]">
             <div className="grid grid-cols-6 border-b border-border sticky top-0 z-10 bg-card">
               <div className="p-3 text-xs font-semibold text-muted-foreground border-r border-border bg-muted/30 flex items-center justify-center">
@@ -871,16 +884,52 @@ function CalendrierTab({ sessions, user }: { sessions: Session[]; user: User }) 
 
 
 /* ─── TAB: MES COURS (enregistrements Google Meet) ─── */
+// Extrait l'ID d'une vidéo YouTube depuis différents formats d'URL possibles
+// (watch?v=, youtu.be/, embed/, live/) pour générer sa miniature officielle.
+function getYouTubeThumbnail(url: string): string | null {
+  const patterns = [
+    /youtube\.com\/watch\?v=([^&\n?#]+)/,
+    /youtu\.be\/([^&\n?#]+)/,
+    /youtube\.com\/embed\/([^&\n?#]+)/,
+    /youtube\.com\/live\/([^&\n?#]+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m?.[1]) return `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`;
+  }
+  return null;
+}
+
 function CoursTab({ enregistrements }: { enregistrements: Enregistrement[] }) {
   const [search, setSearch] = useState("");
+  const [selectedProfId, setSelectedProfId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState("");
+
+  // Liste unique des professeurs présents dans les enregistrements
+  const professeurs = useMemo(() => {
+    const map = new Map<string, Professeur>();
+    enregistrements.forEach((rec) => {
+      if (rec.professeur) map.set(rec.professeur.id, rec.professeur);
+    });
+    return Array.from(map.values());
+  }, [enregistrements]);
 
   const filtres = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return enregistrements;
-    return enregistrements.filter(
-      (rec) => rec.titre.toLowerCase().includes(q) || rec.cours?.titre.toLowerCase().includes(q) || rec.professeur?.nom.toLowerCase().includes(q)
-    );
-  }, [enregistrements, search]);
+    return enregistrements.filter((rec) => {
+      const matchSearch =
+        !q ||
+        rec.titre.toLowerCase().includes(q) ||
+        rec.description?.toLowerCase().includes(q) ||
+        rec.cours?.titre.toLowerCase().includes(q) ||
+        rec.professeur?.nom.toLowerCase().includes(q);
+      const matchProf = !selectedProfId || rec.professeur?.id === selectedProfId;
+      const matchDate = !dateFilter || rec.date === dateFilter;
+      return matchSearch && matchProf && matchDate;
+    });
+  }, [enregistrements, search, selectedProfId, dateFilter]);
+
+  const hasActiveFilters = !!search || !!selectedProfId || !!dateFilter;
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -907,61 +956,142 @@ function CoursTab({ enregistrements }: { enregistrements: Enregistrement[] }) {
         </div>
       )}
 
+      {/* Filtre par professeur */}
+      {professeurs.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+          <button
+            onClick={() => setSelectedProfId(null)}
+            className={[
+              "flex-shrink-0 flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border text-xs font-semibold transition-all",
+              !selectedProfId
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card border-border text-muted-foreground hover:bg-muted",
+            ].join(" ")}
+          >
+            <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px]">
+              👥
+            </span>
+            Tous
+          </button>
+          {professeurs.map((prof) => {
+            const isActive = selectedProfId === prof.id;
+            return (
+              <button
+                key={prof.id}
+                onClick={() => setSelectedProfId(isActive ? null : prof.id)}
+                className={[
+                  "flex-shrink-0 flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border text-xs font-semibold transition-all",
+                  isActive
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card border-border text-muted-foreground hover:bg-muted",
+                ].join(" ")}
+              >
+                <span
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isActive ? "bg-white/20 text-white" : "bg-gradient-ocean text-white"}`}
+                >
+                  {prof.prenoms?.[0] || prof.nom[0]}
+                </span>
+                {prof.prenoms} {prof.nom}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Filtre par date */}
+      {enregistrements.length > 0 && (
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <IconCalendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full rounded-xl border border-border bg-card pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition"
+            />
+          </div>
+          {hasActiveFilters && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setSelectedProfId(null);
+                setDateFilter("");
+              }}
+              className="flex-shrink-0 px-3 py-2.5 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      )}
+
       {filtres.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
             <IconVideo className="w-8 h-8 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground">
-            {enregistrements.length === 0 ? "Aucun cours enregistré pour l'instant" : "Aucun résultat pour cette recherche"}
+            {enregistrements.length === 0 ? "Aucun cours enregistré pour l'instant" : "Aucun résultat pour ces filtres"}
           </p>
           <p className="text-xs text-muted-foreground/60 mt-1">
-            {enregistrements.length === 0 ? "Les replays de vos sessions apparaîtront ici." : "Essayez un autre mot-clé."}
+            {enregistrements.length === 0 ? "Les replays de vos sessions apparaîtront ici." : "Essayez d'ajuster la recherche, le professeur ou la date."}
           </p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {filtres.map((rec) => {
             const couleur = rec.cours?.couleur || "#3b82f6";
+            const thumbnail = getYouTubeThumbnail(rec.lien);
             return (
               <a
                 key={rec.id}
                 href={rec.lien}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group bg-card rounded-2xl border border-border p-4 shadow-soft active:scale-[0.98] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                className="group bg-card rounded-2xl border border-border overflow-hidden shadow-soft active:scale-[0.98] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
               >
-                <div className="flex items-start gap-3">
-                  {/* Vignette vidéo */}
-                  <div
-                    className="relative w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                    style={{ backgroundColor: couleur + "20" }}
-                  >
-                    <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-transform group-hover:scale-110"
-                      style={{ backgroundColor: couleur }}
-                    >
-                      <svg className="w-4 h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                {/* Miniature vidéo (YouTube) */}
+                <div className="relative w-full aspect-video bg-muted overflow-hidden">
+                  {thumbnail ? (
+                    <img
+                      src={thumbnail}
+                      alt={rec.titre}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: couleur + "20", color: couleur }}>
+                      <IconVideo className="w-8 h-8" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/25 transition-colors flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                      <svg className="w-4 h-4 ml-0.5" fill={couleur} viewBox="0 0 24 24">
                         <polygon points="6 4 20 12 6 20 6 4" />
                       </svg>
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex-1 min-w-0">
-                    {rec.cours && (
-                      <span
-                        className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1"
-                        style={{ backgroundColor: couleur + "1a", color: couleur }}
-                      >
-                        {rec.cours.titre}
-                      </span>
-                    )}
-                    <h3 className="font-bold text-sm leading-snug truncate">{rec.titre}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(rec.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                <div className="p-4">
+                  {rec.cours && (
+                    <span
+                      className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1"
+                      style={{ backgroundColor: couleur + "1a", color: couleur }}
+                    >
+                      {rec.cours.titre}
+                    </span>
+                  )}
+                  <h3 className="font-bold text-sm leading-snug truncate">{rec.titre}</h3>
+                  {rec.description && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.description}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-2 gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(rec.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                     </p>
                     {rec.professeur && (
-                      <div className="flex items-center gap-1.5 mt-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <div className="w-5 h-5 rounded-full bg-gradient-ocean flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
                           {rec.professeur.prenoms?.[0] || rec.professeur.nom[0]}
                         </div>
@@ -971,8 +1101,6 @@ function CoursTab({ enregistrements }: { enregistrements: Enregistrement[] }) {
                       </div>
                     )}
                   </div>
-
-                  <IconChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 self-center" />
                 </div>
               </a>
             );
@@ -1147,10 +1275,21 @@ function ChangePasswordCard({ user }: { user: User }) {
 }
 
 /* ─── TAB: PARAMÈTRES ─── */
-function ParametresTab({ user, onLogout }: { user: User; onLogout: () => void }) {
+function ParametresTab({
+  user,
+  onLogout,
+  onUserUpdate,
+}: {
+  user: User;
+  onLogout: () => void;
+  onUserUpdate: (patch: Partial<User>) => void;
+}) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [canInstall, setCanInstall] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -1172,6 +1311,54 @@ function ParametresTab({ user, onLogout }: { user: User; onLogout: () => void })
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+  // Changement de la photo de profil : upload vers Supabase Storage
+  // (bucket public "avatars"), puis mise à jour de la ligne participant.
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permet de re-sélectionner le même fichier plus tard
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Merci de choisir une image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError("L'image doit faire moins de 5 Mo.");
+      return;
+    }
+
+    setPhotoError("");
+    setUploadingPhoto(true);
+
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, cacheControl: "3600" });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(path);
+      const photoUrl = publicUrlData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update({ photo_url: photoUrl })
+        .eq("id", user.id);
+
+      if (updateError) throw updateError;
+
+      onUserUpdate({ photo_url: photoUrl });
+    } catch (err: any) {
+      console.error("Erreur changement photo de profil:", err);
+      setPhotoError(err?.message || "Échec de l'envoi. Réessaie dans un instant.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -1183,14 +1370,57 @@ function ParametresTab({ user, onLogout }: { user: User; onLogout: () => void })
       {/* Profil card */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-ocean flex items-center justify-center text-white font-display font-bold text-xl">
-            {user.prenoms[0]}{user.nom[0]}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              aria-label="Changer la photo de profil"
+              className="relative w-14 h-14 rounded-2xl bg-gradient-ocean flex items-center justify-center text-white font-display font-bold text-xl overflow-hidden group"
+            >
+              {user.photo_url ? (
+                <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <>{user.prenoms[0]}{user.nom[0]}</>
+              )}
+
+              {/* Overlay caméra au survol / pendant l'upload */}
+              <div
+                className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${
+                  uploadingPhoto ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                }`}
+              >
+                {uploadingPhoto ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                )}
+              </div>
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="font-bold text-base">{user.prenoms} {user.nom}</h3>
             <p className="text-xs text-muted-foreground">{user.whatsapp}</p>
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="text-[11px] font-semibold text-primary mt-1 hover:underline"
+            >
+              Changer la photo
+            </button>
           </div>
         </div>
+        {photoError && <p className="text-xs text-red-500 mt-3">{photoError}</p>}
 
         <div className="mt-4 space-y-3">
           {[
@@ -1306,7 +1536,7 @@ function DashboardPage() {
 
     const { data, error } = await supabase
       .from("participants")
-      .select("id, nom, prenoms, whatsapp, niveau_etudes, paye, montant_paye")
+      .select("id, nom, prenoms, whatsapp, niveau_etudes, paye, montant_paye, photo_url")
       .eq("id", sessionData.id)
       .single();
 
@@ -1358,9 +1588,20 @@ function DashboardPage() {
     window.location.href = "/connexion";
   };
 
+  // Met à jour l'utilisateur localement + dans le cache localStorage
+  // (utilisé après changement de la photo de profil)
+  const handleUserUpdate = (patch: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...patch };
+      localStorage.setItem("amphix_session", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Stats
   const stats = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateStr(new Date());
     const total = sessions.length;
     const aVenir = sessions.filter((s) => s.date >= today).length;
     const cetteSemaine = sessions.filter((s) => {
@@ -1394,9 +1635,9 @@ function DashboardPage() {
       <aside className="hidden lg:flex w-72 bg-card border-r border-border flex-col sticky top-0 h-screen z-30">
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-ocean flex items-center justify-center text-white font-display font-bold text-lg">
-              A
-            </div>
+           <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
+  <img src="/logo.svg" alt="Amphix" className="w-full h-full object-contain" />
+</div>
             <div>
               <span className="font-display font-bold text-lg">Amphix</span>
               <span className="block text-[10px] text-muted-foreground -mt-0.5">Bootcamp 2026</span>
@@ -1437,8 +1678,12 @@ function DashboardPage() {
 
         <div className="p-4 border-t border-border">
           <div className="bg-muted/50 rounded-xl p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-ocean flex items-center justify-center text-white font-bold text-xs">
-              {user.prenoms[0]}{user.nom[0]}
+            <div className="w-9 h-9 rounded-full bg-gradient-ocean flex items-center justify-center text-white font-bold text-xs overflow-hidden shrink-0">
+              {user.photo_url ? (
+                <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <>{user.prenoms[0]}{user.nom[0]}</>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate">{user.prenoms} {user.nom}</p>
@@ -1449,14 +1694,14 @@ function DashboardPage() {
       </aside>
 
       {/* ═══ CONTENU PRINCIPAL ═══ */}
-      <main className="flex-1 min-h-screen pb-24 lg:pb-0">
+      <main className="flex-1 min-w-0 min-h-screen pb-24 lg:pb-0">
         {/* Header mobile */}
         <header className="lg:hidden sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-ocean flex items-center justify-center text-white font-display font-bold text-sm">
-                A
-              </div>
+              <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+  <img src="/logo.svg" alt="Amphix" className="w-full h-full object-contain" />
+</div>
               <div>
                 <span className="font-display font-bold text-sm block leading-tight">Amphix</span>
                 <span className="text-[10px] text-muted-foreground leading-tight">
@@ -1475,12 +1720,8 @@ function DashboardPage() {
         {/* Header desktop */}
         <header className="hidden lg:flex sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border px-8 py-4 items-center justify-between">
           <div>
-            <h1 className="font-display text-xl font-bold">
-              {activeTab === "calendrier" && "Mon emploi du temps"}
-              {activeTab === "cours" && "Mes cours"}
-              {activeTab === "parametres" && "Paramètres"}
-            </h1>
-            <p className="text-xs text-muted-foreground">{user.prenoms} {user.nom} · {user.niveau_etudes}</p>
+            <h1 className="font-display text-lg font-bold">Bonjour, {user.prenoms} 👋</h1>
+            <p className="text-xs text-muted-foreground">{user.niveau_etudes}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${user.paye ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
@@ -1492,7 +1733,7 @@ function DashboardPage() {
         <div className="px-4 py-5 lg:px-8 lg:py-6 max-w-5xl">
           {activeTab === "calendrier" && <CalendrierTab sessions={sessions} user={user} />}
           {activeTab === "cours" && <CoursTab enregistrements={enregistrements} />}
-          {activeTab === "parametres" && <ParametresTab user={user} onLogout={handleLogout} />}
+          {activeTab === "parametres" && <ParametresTab user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />}
         </div>
       </main>
 
