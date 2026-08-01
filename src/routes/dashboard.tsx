@@ -4,6 +4,63 @@ import type React from "react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 
+// Clé publique VAPID (générée avec `npx web-push generate-vapid-keys`).
+// Doit correspondre à la clé PRIVÉE configurée côté edge function Supabase.
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+// Active les notifications push pour ce téléphone : demande la permission,
+// s'abonne via le Service Worker, puis enregistre l'abonnement dans Supabase
+// (lié au participant courant) pour que l'admin puisse le notifier.
+async function subscribeToPush(participantId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return { ok: false, error: "Les notifications ne sont pas supportées sur cet appareil/navigateur." };
+  }
+  if (!VAPID_PUBLIC_KEY) {
+    return { ok: false, error: "Configuration des notifications manquante (VITE_VAPID_PUBLIC_KEY)." };
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      return { ok: false, error: "Permission refusée. Active les notifications dans les réglages de ton téléphone." };
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+
+    const json = subscription.toJSON();
+    await supabase.from("push_subscriptions").upsert(
+      {
+        participant_id: participantId,
+        endpoint: json.endpoint,
+        p256dh: json.keys?.p256dh,
+        auth: json.keys?.auth,
+      },
+      { onConflict: "endpoint" }
+    );
+
+    return { ok: true };
+  } catch (err: any) {
+    console.error("Erreur abonnement notifications:", err);
+    return { ok: false, error: "Impossible d'activer les notifications pour l'instant." };
+  }
+}
+
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
   head: () => ({
@@ -1305,11 +1362,31 @@ function ParametresTab({
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === "accepted") setCanInstall(false);
+    if (outcome === "accepted") {
+      setCanInstall(false);
+      // Propose l'activation des notifications juste après l'installation
+      handleEnableNotifications();
+    }
     setInstallPrompt(null);
   };
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  // Notifications push
+  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "enabled" | "error">("idle");
+  const [notifError, setNotifError] = useState("");
+
+  const handleEnableNotifications = async () => {
+    setNotifStatus("loading");
+    setNotifError("");
+    const result = await subscribeToPush(user.id);
+    if (result.ok) {
+      setNotifStatus("enabled");
+    } else {
+      setNotifStatus("error");
+      setNotifError(result.error || "Échec de l'activation.");
+    }
+  };
 
   // Changement de la photo de profil : upload vers Supabase Storage
   // (bucket public "avatars"), puis mise à jour de la ligne participant.
@@ -1480,6 +1557,42 @@ function ParametresTab({
         </div>
       )}
 
+      {/* ─── NOTIFICATIONS ─── */}
+      <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-bold text-sm">Notifications</h3>
+            <p className="text-xs text-muted-foreground">Sois prévenu(e) dès qu'un cours ou une info est publié</p>
+          </div>
+        </div>
+
+        {notifStatus === "enabled" ? (
+          <div className="flex items-center gap-2 text-sm font-medium text-green-600">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Notifications activées
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={handleEnableNotifications}
+              disabled={notifStatus === "loading"}
+              className="w-full rounded-xl bg-primary text-primary-foreground px-4 py-3 font-bold text-sm hover:brightness-110 transition active:scale-95 disabled:opacity-60"
+            >
+              {notifStatus === "loading" ? "Activation..." : "🔔 Activer les notifications"}
+            </button>
+            {notifError && <p className="text-xs text-red-500 mt-2">{notifError}</p>}
+          </>
+        )}
+      </div>
+
       {/* Déconnexion */}
       <button
         onClick={() => setShowConfirm(true)}
@@ -1517,6 +1630,161 @@ function ParametresTab({
 }
 
 /* ─── Page Principale ─── */
+/* ═══════════════════════════════════════════════════
+   CLOCHE DE NOTIFICATIONS
+   Affiche l'historique des messages envoyés par l'admin,
+   avec badge "non lu" et mise à jour en temps réel.
+   ═══════════════════════════════════════════════════ */
+interface NotifRow {
+  id: string;
+  title: string;
+  message: string;
+  created_at: string;
+}
+
+const LAST_SEEN_KEY = "amphix_notif_last_seen";
+
+function NotificationBell({ compact = false }: { compact?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [notifs, setNotifs] = useState<NotifRow[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const computeUnread = (list: NotifRow[]) => {
+    const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
+    if (!lastSeen) return list.length;
+    return list.filter((n) => new Date(n.created_at).getTime() > Number(lastSeen)).length;
+  };
+
+  const fetchNotifs = async () => {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("id, title, message, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (!error && data) {
+      setNotifs(data);
+      setUnreadCount(computeUnread(data));
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifs();
+
+    // Nom de canal unique à chaque montage : évite le conflit "cannot add
+    // postgres_changes callbacks after subscribe()" que déclenche le Mode
+    // Strict de React en dev (montage → démontage → remontage rapide, avec
+    // removeChannel() qui est asynchrone et pas encore terminé).
+    const channelName = `notifications_bell_${Math.random().toString(36).slice(2)}`;
+
+    // Mise à jour en direct dès qu'une notification est envoyée par l'admin
+    const channel = supabase
+      .channel(channelName)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, () => {
+        fetchNotifs();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Fermer au clic en dehors
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  const togglePanel = () => {
+    const next = !open;
+    setOpen(next);
+    if (next) {
+      // On marque tout comme lu à l'ouverture
+      localStorage.setItem(LAST_SEEN_KEY, String(Date.now()));
+      setUnreadCount(0);
+    }
+  };
+
+  const timeAgo = (iso: string) => {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "à l'instant";
+    if (mins < 60) return `il y a ${mins} min`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `il y a ${hours} h`;
+    const days = Math.floor(hours / 24);
+    return `il y a ${days} j`;
+  };
+
+  return (
+    <div className="relative" ref={panelRef}>
+      <button
+        onClick={togglePanel}
+        aria-label="Notifications"
+        className={
+          compact
+            ? "w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center text-foreground relative"
+            : "w-9 h-9 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition relative"
+        }
+      >
+        <svg className="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          {/* Fond assombri — mobile uniquement, ferme le panneau au clic */}
+          <div
+            className="fixed inset-0 bg-black/30 z-40 sm:hidden"
+            onClick={() => setOpen(false)}
+          />
+
+          <div
+            className="fixed left-3 right-3 top-[68px] sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:max-w-[85vw] max-w-none bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in"
+          >
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold text-sm">Notifications</h3>
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Fermer"
+                className="sm:hidden w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto scrollbar-hide">
+              {notifs.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Aucune notification pour l'instant.</p>
+              ) : (
+                notifs.map((n) => (
+                  <div key={n.id} className="px-4 py-3 border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
+                    <p className="text-sm font-semibold">{n.title}</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">{n.message}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">{timeAgo(n.created_at)}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("calendrier");
   const [user, setUser] = useState<User | null>(null);
@@ -1711,8 +1979,11 @@ function DashboardPage() {
                 </span>
               </div>
             </div>
-            <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${user.paye ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-              {user.paye ? "✓ Payé" : "Non payé"}
+            <div className="flex items-center gap-2">
+              <NotificationBell compact />
+              <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${user.paye ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                {user.paye ? "✓ Payé" : "Non payé"}
+              </div>
             </div>
           </div>
         </header>
@@ -1724,6 +1995,7 @@ function DashboardPage() {
             <p className="text-xs text-muted-foreground">{user.niveau_etudes}</p>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${user.paye ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
               {user.paye ? "✓ Payé" : "Non payé"}
             </div>

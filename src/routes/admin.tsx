@@ -70,7 +70,7 @@ interface Enregistrement {
   professeur?: Professeur;
 }
 
-type AdminTab = "dashboard" | "participants" | "cours" | "professeurs" | "programme" | "calendrier" | "enregistrements";
+type AdminTab = "dashboard" | "participants" | "cours" | "professeurs" | "programme" | "calendrier" | "enregistrements" | "notifications";
 
 /* ─── Icônes SVG (style Lucide) ─── */
 const Icons = {
@@ -361,7 +361,6 @@ function ProtectedAdminDashboard() {
 /* ─── Composant Admin ─── */
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [cours, setCours] = useState<Cours[]>([]);
   const [professeurs, setProfesseurs] = useState<Professeur[]>([]);
@@ -478,6 +477,7 @@ function AdminDashboard() {
     { key: "programme", label: "Programmer", icon: Icons.plus },
     { key: "calendrier", label: "Calendrier", icon: Icons.calendar },
     { key: "enregistrements", label: "Enregistrements", icon: Icons.video },
+    { key: "notifications", label: "Notifications", icon: Icons.bell },
   ];
 
   const kpiData = [
@@ -618,25 +618,9 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen w-full max-w-full bg-slate-50 flex font-sans text-slate-900 overflow-x-hidden">
-      {/* ═══ OVERLAY MOBILE ═══ */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
+    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
       {/* ═══ SIDEBAR ═══ */}
-      <aside
-        className={[
-          "w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col",
-          "fixed lg:sticky top-0 left-0 h-screen z-40",
-          "transition-transform duration-300 ease-out",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0",
-        ].join(" ")}
-      >
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen z-30">
         <div className="p-6 border-b border-slate-200 flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-extrabold text-sm">
             A
@@ -645,15 +629,6 @@ function AdminDashboard() {
           <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
             Admin
           </span>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="ml-auto lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5">
@@ -663,10 +638,7 @@ function AdminDashboard() {
           {navItems.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => {
-                setActiveTab(tab.key);
-                setSidebarOpen(false);
-              }}
+              onClick={() => setActiveTab(tab.key)}
               className={[
                 "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200",
                 activeTab === tab.key
@@ -695,36 +667,29 @@ function AdminDashboard() {
       </aside>
 
       {/* ═══ MAIN ═══ */}
-      <main className="flex-1 min-w-0 w-full overflow-x-hidden">
+      <main className="flex-1 min-w-0 overflow-x-hidden">
         {/* TOP BAR */}
-        <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-7 sticky top-0 z-20">
-          <div className="flex items-center gap-4 min-w-0">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden shrink-0 w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </button>
-            <span className="text-[13px] text-slate-500 font-medium truncate">
+        <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-7 sticky top-0 z-20">
+          <div className="flex items-center gap-4">
+            <span className="text-[13px] text-slate-500 font-medium">
               Amphix Admin / <strong className="text-slate-900">Dashboard</strong>
             </span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-xl px-3.5 py-2 border border-transparent focus-within:border-indigo-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-100 rounded-xl px-3.5 py-2 border border-transparent focus-within:border-indigo-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
               {Icons.search}
               <input
                 type="text"
                 placeholder="Rechercher..."
-                className="bg-transparent border-none outline-none text-[13px] w-36 md:w-48 text-slate-900 placeholder-slate-400"
+                className="bg-transparent border-none outline-none text-[13px] w-48 text-slate-900 placeholder-slate-400"
               />
             </div>
-            <button className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition relative">
+            <button
+              onClick={() => setActiveTab("notifications")}
+              className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition relative"
+              aria-label="Notifications"
+            >
               {Icons.bell}
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white" />
             </button>
             <button className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition">
               {Icons.settings}
@@ -932,6 +897,11 @@ function AdminDashboard() {
         {activeTab === "enregistrements" && (
           <section className="px-7 py-6 pb-20 max-w-6xl">
             <EnregistrementsTab enregistrements={enregistrements} cours={cours} professeurs={professeurs} onRefresh={fetchEnregistrements} />
+          </section>
+        )}
+        {activeTab === "notifications" && (
+          <section className="px-7 py-6 pb-20 max-w-3xl">
+            <NotificationsTab />
           </section>
         )}
 
@@ -2671,9 +2641,186 @@ function EnregistrementsTab({
             {Icons.video}
           </div>
           <p className="text-slate-500 font-medium">Aucun enregistrement pour le moment</p>
-          <p className="text-sm text-slate-400 mt-1">Ajoutez le lien de votre premier cours enregistré sur Google Meet.</p>
+          <p className="text-sm text-slate-400 mt-1">Ajoutez le lien de votre premier cours enregistré sur YouTube.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   NOTIFICATIONS — envoi de notifications push aux
+   participants ayant installé la PWA
+   ═══════════════════════════════════════════════════ */
+interface NotificationRow {
+  id: string;
+  title: string;
+  message: string;
+  created_at: string;
+  sent_count: number | null;
+}
+
+function NotificationsTab() {
+  const [title, setTitle] = useState("Amphix");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [history, setHistory] = useState<NotificationRow[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("id, title, message, created_at, sent_count")
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (!error && data) setHistory(data);
+    setLoadingHistory(false);
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+    setSending(true);
+    setFeedback(null);
+
+    try {
+      // 1) On enregistre la notification (historique + source pour la cloche
+      //    côté participants, même ceux qui n'ont pas activé le push).
+      const { data: inserted, error: insertError } = await supabase
+        .from("notifications")
+        .insert({ title: title.trim() || "Amphix", message: message.trim() })
+        .select()
+        .single();
+      if (insertError) throw insertError;
+
+      // 2) On déclenche l'envoi push réel (edge function) vers tous les
+      //    appareils abonnés.
+      const { data: pushResult, error: pushError } = await supabase.functions.invoke("send-push", {
+        body: { title: title.trim() || "Amphix", message: message.trim() },
+      });
+      if (pushError) throw pushError;
+
+      const sentCount = pushResult?.sent ?? 0;
+      if (inserted) {
+        await supabase.from("notifications").update({ sent_count: sentCount }).eq("id", inserted.id);
+      }
+
+      setFeedback({
+        type: "success",
+        text: `Notification envoyée à ${sentCount} appareil${sentCount > 1 ? "s" : ""} abonné${sentCount > 1 ? "s" : ""}.`,
+      });
+      setMessage("");
+      fetchHistory();
+    } catch (err: any) {
+      console.error("Erreur envoi notification:", err);
+      setFeedback({ type: "error", text: err?.message || "Échec de l'envoi. Réessaie dans un instant." });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDeleteHistory = async (id: string) => {
+    if (!confirm("Supprimer cette notification de l'historique ?")) return;
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+    if (!error) fetchHistory();
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h2 className="text-2xl font-extrabold tracking-tight">Notifications</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Envoie un message qui apparaît instantanément sur le téléphone de tous les participants
+          ayant installé et activé les notifications de la PWA.
+        </p>
+      </div>
+
+      <form onSubmit={handleSend} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+        {feedback && (
+          <div
+            className={`rounded-xl px-4 py-3 text-sm ${
+              feedback.type === "success" ? "bg-green-50 text-green-700 border border-green-100" : "bg-red-50 text-red-600 border border-red-100"
+            }`}
+          >
+            {feedback.text}
+          </div>
+        )}
+
+        <div>
+          <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Titre</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Amphix"
+            maxLength={50}
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Message *</label>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Les cours de la semaine prochaine sont prêts !"
+            maxLength={200}
+            rows={3}
+            required
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 resize-none"
+          />
+          <p className="text-xs text-slate-400 mt-1 text-right">{message.length}/200</p>
+        </div>
+
+        <button
+          type="submit"
+          disabled={sending || !message.trim()}
+          className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-4 py-3 font-semibold text-sm hover:brightness-110 transition active:scale-95 disabled:opacity-60"
+        >
+          {sending ? "Envoi en cours..." : "Notifier tous les participants"}
+        </button>
+      </form>
+
+      {/* Historique */}
+      <div>
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">Historique</h3>
+        {loadingHistory ? (
+          <p className="text-sm text-slate-400">Chargement...</p>
+        ) : history.length === 0 ? (
+          <p className="text-sm text-slate-400">Aucune notification envoyée pour l'instant.</p>
+        ) : (
+          <div className="space-y-2">
+            {history.map((n) => (
+              <div key={n.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center flex-shrink-0">
+                  {Icons.bell}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">{n.title}</p>
+                  <p className="text-sm text-slate-500">{n.message}</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {new Date(n.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {n.sent_count !== null && ` · ${n.sent_count} appareil${n.sent_count > 1 ? "s" : ""}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDeleteHistory(n.id)}
+                  className="p-1.5 rounded-lg hover:bg-red-50 transition text-slate-400 hover:text-red-500 flex-shrink-0"
+                  aria-label="Supprimer"
+                >
+                  {Icons.trash}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

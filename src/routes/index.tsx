@@ -337,7 +337,7 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
         `}</style>
 
         {/* BARRE D'URGENCE — Défilante, responsive */}
-         {/*<div className="sticky top-0 z-40 w-full bg-gradient-to-r from-red-600 via-orange-600 to-red-600 overflow-hidden py-2 sm:py-2.5 shadow-md">
+        <div className="sticky top-0 z-40 w-full bg-gradient-to-r from-red-600 via-orange-600 to-red-600 overflow-hidden py-2 sm:py-2.5 shadow-md">
           <style>{`
             @keyframes urgency-marquee-scroll {
               0% { transform: translateX(0); }
@@ -359,14 +359,14 @@ const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
                     className="flex items-center gap-2 px-4 sm:px-6 text-[11px] sm:text-sm md:text-base font-semibold uppercase tracking-wide text-white"
                   >
                     <span aria-hidden="true">⚡</span>
-                      Dernière vague des inscriptions — Fin vendredi 31 juillet 2026
+                     Début officiel des cours : lundi 3 août 2026. Les dernières places sont encore disponibles !
                     <span className="mx-2 text-white/50">•</span>
                   </span>
                 ))}
               </div>
             ))}
           </div>
-        </div>*/}
+        </div>
 
         {/* HERO */}
         <section className="relative bg-gradient-hero overflow-hidden">
