@@ -262,6 +262,23 @@ function IconChevronLeft({ className = "w-6 h-6" }: { className?: string }) {
   );
 }
 
+function IconCheck({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function IconCheckDouble({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <polyline points="18 6 7 17 2 12" />
+      <polyline points="22 10 13 19 10 16" />
+    </svg>
+  );
+}
+
 function IconChevronRight({ className = "w-6 h-6" }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -386,37 +403,7 @@ function PWAInstallPrompt() {
 
 
   // Si pas de prompt disponible et pas iOS, ne montre rien
-  if (!showPrompt && !deferredPrompt) return null;
-
-  return (
-    <div className="fixed bottom-20 left-4 right-4 z-[60] bg-primary text-white rounded-2xl shadow-2xl p-4 animate-slide-up">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <rect x="3" y="4" width="18" height="18" rx="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold">Installer Amphix</p>
-          <p className="text-xs opacity-80">Accédez rapidement à vos cours</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowPrompt(false)} className="px-3 py-1.5 text-xs font-medium opacity-80 hover:opacity-100">
-            Plus tard
-          </button>
-          <button 
-            onClick={handleInstall} 
-            className="px-4 py-2 rounded-xl bg-white text-primary text-xs font-bold hover:bg-white/90 transition active:scale-95"
-          >
-            Installer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  
 }
 
 /* ─── TAB: CALENDRIER ─── */
@@ -2013,7 +2000,8 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
       .is("read_at", null);
   };
 
-  // Réception en direct des nouveaux messages de la conversation ouverte.
+  // Réception en direct des nouveaux messages de la conversation ouverte,
+  // et des mises à jour (passage en "Vu" quand le destinataire lit).
   useEffect(() => {
     if (!conversationId) return;
     const channelName = `messagerie_chat_${conversationId}_${Math.random().toString(36).slice(2)}`;
@@ -2025,6 +2013,14 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
         (payload) => {
           const incoming = payload.new as MessageRow;
           setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const updated = payload.new as MessageRow;
+          setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
         }
       )
       .subscribe();
@@ -2246,8 +2242,18 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
                         }`}
                       >
                         <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                        <p className={`text-[10px] mt-1 ${mine ? "text-white/70" : "text-muted-foreground"}`}>
-                          {new Date(m.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        <p className={`text-[10px] mt-1 flex items-center gap-1 ${mine ? "justify-end text-white/70" : "text-muted-foreground"}`}>
+                          <span>{new Date(m.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                          {mine && (
+                            m.read_at ? (
+                              <span className="inline-flex items-center gap-0.5">
+                                <IconCheckDouble className="w-3 h-3" />
+                                <span>Vu</span>
+                              </span>
+                            ) : (
+                              <IconCheck className="w-3 h-3" />
+                            )
+                          )}
                         </p>
                       </div>
                     </div>
