@@ -1,0 +1,1 @@
+import{f as e}from"./index-DrL5F5vQ.js";import{t}from"./AvisForm-o9StHCzi.js";var n=e();function r(){return(0,n.jsx)(`div`,{className:`min-h-screen bg-background py-20 px-4 flex items-center justify-center`,children:(0,n.jsx)(t,{})})}export{r as component};

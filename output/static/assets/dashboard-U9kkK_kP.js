@@ -1,0 +1,1 @@
+import{f as e}from"./index-DrL5F5vQ.js";var t=e();function n(){return(0,t.jsx)(`div`,{children:`Hello "/dashboard"!`})}export{n as component};
