@@ -2226,6 +2226,30 @@ function DashboardPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [enregistrements, setEnregistrements] = useState<Enregistrement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  // ─── Compteur de messages non lus (badge onglet Messages) ───
+  async function refreshUnreadMessages(participantId: string) {
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("id")
+      .or(`participant_a_id.eq.${participantId},participant_b_id.eq.${participantId}`);
+
+    const convIds = (convs || []).map((c) => c.id);
+    if (convIds.length === 0) {
+      setUnreadMessages(0);
+      return;
+    }
+
+    const { count } = await supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .in("conversation_id", convIds)
+      .neq("sender_id", participantId)
+      .is("read_at", null);
+
+    setUnreadMessages(count || 0);
+  }
 
   // ─── Chargement utilisateur ───
   async function loadUserData() {
@@ -2286,6 +2310,30 @@ function DashboardPage() {
     init();
   }, []);
 
+  // ─── Mise à jour en direct du badge "messages non lus" ───
+  // Se déclenche sur tout nouveau message (pour incrémenter) et sur toute
+  // mise à jour (quand un message est marqué lu à l'ouverture d'une
+  // conversation, pour décrémenter) — sans jamais avoir besoin de refresh.
+  useEffect(() => {
+    if (!user) return;
+    refreshUnreadMessages(user.id);
+
+    const channelName = `messages_badge_${Math.random().toString(36).slice(2)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => {
+        refreshUnreadMessages(user.id);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, () => {
+        refreshUnreadMessages(user.id);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const handleLogout = () => {
     localStorage.removeItem("amphix_session");
     window.location.href = "/connexion";
@@ -2327,7 +2375,7 @@ function DashboardPage() {
   const tabs = [
     { key: "calendrier" as DashboardTab, icon: IconCalendar, label: "Calendrier", badge: stats.cetteSemaine > 0 ? stats.cetteSemaine : undefined },
     { key: "cours" as DashboardTab, icon: IconBook, label: "Cours", badge: enregistrements.length > 0 ? enregistrements.length : undefined },
-    { key: "messagerie" as DashboardTab, icon: IconMessage, label: "Messages" },
+    { key: "messagerie" as DashboardTab, icon: IconMessage, label: "Messages", badge: unreadMessages > 0 ? unreadMessages : undefined },
     { key: "parametres" as DashboardTab, icon: IconSettings, label: "Paramètres" },
   ];
 
