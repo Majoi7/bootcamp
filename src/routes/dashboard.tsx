@@ -34,17 +34,34 @@ async function subscribeToPush(participantId: string): Promise<{ ok: boolean; er
       return { ok: false, error: "Permission refusée. Active les notifications dans les réglages de ton téléphone." };
     }
 
-    const registration = await navigator.serviceWorker.ready;
+    // navigator.serviceWorker.ready ne se résout QUE si un service worker a
+    // déjà été enregistré quelque part dans l'app. On force l'enregistrement
+    // ici (idempotent : si déjà enregistré, ça ne fait rien de plus) pour ne
+    // jamais rester bloqué indéfiniment sur cette ligne.
+    let registration: ServiceWorkerRegistration;
+    try {
+      registration = await navigator.serviceWorker.register("/sw.js");
+    } catch (regErr: any) {
+      console.error("Erreur enregistrement service worker:", regErr);
+      return { ok: false, error: "Impossible d'enregistrer le service worker." };
+    }
+    await navigator.serviceWorker.ready;
+
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
+      try {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      } catch (subErr: any) {
+        console.error("Erreur pushManager.subscribe:", subErr);
+        return { ok: false, error: `Échec de l'abonnement push: ${subErr?.message || subErr}` };
+      }
     }
 
     const json = subscription.toJSON();
-    await supabase.from("push_subscriptions").upsert(
+    const { error: upsertError } = await supabase.from("push_subscriptions").upsert(
       {
         participant_id: participantId,
         endpoint: json.endpoint,
@@ -53,6 +70,11 @@ async function subscribeToPush(participantId: string): Promise<{ ok: boolean; er
       },
       { onConflict: "endpoint" }
     );
+
+    if (upsertError) {
+      console.error("Erreur enregistrement abonnement push (Supabase):", upsertError);
+      return { ok: false, error: `Échec de l'enregistrement: ${upsertError.message}` };
+    }
 
     return { ok: true };
   } catch (err: any) {
@@ -129,7 +151,7 @@ interface Enregistrement {
   professeur?: Professeur;
 }
 
-type DashboardTab = "calendrier" | "cours" | "parametres";
+type DashboardTab = "calendrier" | "cours" | "messagerie" | "parametres";
 
 // Formate une date en "YYYY-MM-DD" en utilisant les composants LOCAUX
 // (jamais toISOString(), qui convertit en UTC et peut décaler la date
@@ -168,6 +190,23 @@ function IconSettings({ className = "w-6 h-6" }: { className?: string }) {
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function IconMessage({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  );
+}
+
+function IconSend({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>
   );
 }
@@ -1785,6 +1824,402 @@ function NotificationBell({ compact = false }: { compact?: boolean }) {
   );
 }
 
+/* ═══════════════════════════════════════════════════
+   MESSAGERIE
+   Liste de tous les participants (comme un annuaire) + fil de discussion
+   1-à-1 en temps réel. Split-view sur desktop, navigation par écran plein
+   sur mobile (liste puis conversation).
+   ═══════════════════════════════════════════════════ */
+interface ParticipantLite {
+  id: string;
+  nom: string;
+  prenoms: string;
+  photo_url: string | null;
+  niveau_etudes: string;
+}
+
+interface ConversationRow {
+  id: string;
+  participant_a_id: string;
+  participant_b_id: string;
+  last_message: string | null;
+  last_message_at: string | null;
+}
+
+interface MessageRow {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+// Ordonne toujours la paire de la même façon (a < b) pour que la
+// contrainte unique côté DB empêche les doublons de conversation.
+function orderedPair(a: string, b: string): [string, string] {
+  return a < b ? [a, b] : [b, a];
+}
+
+function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
+  const [participants, setParticipants] = useState<ParticipantLite[]>([]);
+  const [conversations, setConversations] = useState<ConversationRow[]>([]);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<ParticipantLite | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const loadAll = async () => {
+    const [{ data: parts }, { data: convs }] = await Promise.all([
+      supabase
+        .from("participants")
+        .select("id, nom, prenoms, photo_url, niveau_etudes")
+        .neq("id", user.id)
+        .order("prenoms"),
+      supabase
+        .from("conversations")
+        .select("*")
+        .or(`participant_a_id.eq.${user.id},participant_b_id.eq.${user.id}`),
+    ]);
+    if (parts) setParticipants(parts);
+    if (convs) setConversations(convs);
+  };
+
+  // Chargement initial + mise à jour en direct de la liste (nouvelle
+  // conversation créée, dernier message mis à jour) sans avoir à refresh.
+  useEffect(() => {
+    loadAll();
+    const channelName = `messagerie_list_${Math.random().toString(36).slice(2)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => loadAll())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user.id]);
+
+  // Ouvre (ou crée si elle n'existe pas encore) la conversation avec un
+  // participant, charge l'historique, puis marque les messages reçus lus.
+  const openConversation = async (p: ParticipantLite) => {
+    setSelected(p);
+    setMessages([]);
+    setLoadingMsgs(true);
+
+    const [a, b] = orderedPair(user.id, p.id);
+    let conv = conversations.find((c) => c.participant_a_id === a && c.participant_b_id === b) || null;
+
+    if (!conv) {
+      const { data, error } = await supabase
+        .from("conversations")
+        .insert({ participant_a_id: a, participant_b_id: b })
+        .select()
+        .single();
+
+      if (error) {
+        // Course possible si l'autre participant a créé la conversation
+        // au même moment (contrainte unique violée) : on la relit.
+        const { data: existing } = await supabase
+          .from("conversations")
+          .select("*")
+          .eq("participant_a_id", a)
+          .eq("participant_b_id", b)
+          .single();
+        conv = existing || null;
+      } else {
+        conv = data;
+        setConversations((prev) => [...prev, data]);
+      }
+    }
+
+    if (!conv) {
+      setLoadingMsgs(false);
+      return;
+    }
+
+    setConversationId(conv.id);
+
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", conv.id)
+      .order("created_at", { ascending: true });
+
+    setMessages(msgs || []);
+    setLoadingMsgs(false);
+
+    await supabase
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("conversation_id", conv.id)
+      .neq("sender_id", user.id)
+      .is("read_at", null);
+  };
+
+  // Réception en direct des nouveaux messages de la conversation ouverte.
+  useEffect(() => {
+    if (!conversationId) return;
+    const channelName = `messagerie_chat_${conversationId}_${Math.random().toString(36).slice(2)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const incoming = payload.new as MessageRow;
+          setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId]);
+
+  // Auto-scroll vers le bas à chaque nouveau message.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    const content = input.trim();
+    if (!content || !conversationId || sending) return;
+    setSending(true);
+    setInput("");
+
+    // Affichage optimiste : on montre le message tout de suite, on le
+    // remplace par la version serveur (avec le vrai id) une fois l'insert
+    // confirmé, ou on le retire s'il échoue.
+    const tempId = `tmp-${Date.now()}`;
+    const optimistic: MessageRow = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: user.id,
+      content,
+      created_at: new Date().toISOString(),
+      read_at: null,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({ conversation_id: conversationId, sender_id: user.id, content })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? data : m)));
+      await supabase
+        .from("conversations")
+        .update({ last_message: content, last_message_at: data.created_at })
+        .eq("id", conversationId);
+    } else {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setInput(content);
+    }
+    setSending(false);
+  };
+
+  const timeShort = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) {
+      return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    }
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+    if (diffDays < 7) return d.toLocaleDateString("fr-FR", { weekday: "short" });
+    return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  };
+
+  // Fusionne l'annuaire des participants avec leur conversation existante
+  // (s'il y en a une), trié par dernier message reçu/envoyé.
+  const list = useMemo(() => {
+    const convByParticipant = new Map<string, ConversationRow>();
+    for (const c of conversations) {
+      const otherId = c.participant_a_id === user.id ? c.participant_b_id : c.participant_a_id;
+      convByParticipant.set(otherId, c);
+    }
+    const q = search.trim().toLowerCase();
+    return participants
+      .map((p) => ({ p, conv: convByParticipant.get(p.id) || null }))
+      .filter(({ p }) => `${p.prenoms} ${p.nom}`.toLowerCase().includes(q))
+      .sort((x, y) => {
+        const tx = x.conv?.last_message_at ? new Date(x.conv.last_message_at).getTime() : 0;
+        const ty = y.conv?.last_message_at ? new Date(y.conv.last_message_at).getTime() : 0;
+        if (tx !== ty) return ty - tx;
+        return x.p.prenoms.localeCompare(y.p.prenoms);
+      });
+  }, [participants, conversations, search, user.id]);
+
+  const closeConversation = () => {
+    setSelected(null);
+    setConversationId(null);
+    setMessages([]);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-card flex overflow-hidden lg:static lg:inset-auto lg:z-auto lg:rounded-3xl lg:border lg:border-border lg:shadow-soft lg:h-[calc(100dvh-150px)]">
+      {/* ═══ LISTE DES PARTICIPANTS ═══ */}
+      <div className={`w-full lg:w-80 lg:shrink-0 border-r border-border flex-col ${selected ? "hidden lg:flex" : "flex"}`}>
+        <div className="px-4 pt-4 pb-4 border-b border-border shrink-0 safe-area-pt">
+          <div className="flex items-center gap-2 mb-3">
+            <button
+              onClick={onExit}
+              aria-label="Retour au tableau de bord"
+              className="lg:hidden w-8 h-8 -ml-1 flex items-center justify-center rounded-full hover:bg-muted transition-colors shrink-0"
+            >
+              <IconChevronLeft className="w-5 h-5" />
+            </button>
+            <h2 className="font-display font-bold text-lg">Conversations</h2>
+          </div>
+          <div className="relative">
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher"
+              className="w-full bg-muted/50 rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          {list.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8 px-4">Aucun participant trouvé.</p>
+          ) : (
+            list.map(({ p, conv }) => (
+              <button
+                key={p.id}
+                onClick={() => openConversation(p)}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-border/60 hover:bg-muted/40 transition-colors ${
+                  selected?.id === p.id ? "bg-muted/60" : ""
+                }`}
+              >
+                <div className="w-11 h-11 rounded-full bg-gradient-ocean flex items-center justify-center text-white font-bold text-xs overflow-hidden shrink-0">
+                  {p.photo_url ? (
+                    <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <>{p.prenoms[0]}{p.nom[0]}</>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold truncate">{p.prenoms} {p.nom}</p>
+                    {conv?.last_message_at && (
+                      <span className="text-[10px] text-muted-foreground shrink-0">{timeShort(conv.last_message_at)}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {conv?.last_message ? conv.last_message : "Aucun message pour l'instant"}
+                  </p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* ═══ FIL DE DISCUSSION ═══ */}
+      <div className={`flex-1 min-w-0 flex-col ${selected ? "flex" : "hidden lg:flex"}`}>
+        {!selected ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-4">
+              <IconMessage className="w-8 h-8" />
+            </div>
+            <p className="font-semibold">Sélectionne une conversation</p>
+            <p className="text-sm text-muted-foreground mt-1">Choisis un participant dans la liste pour lui écrire.</p>
+          </div>
+        ) : (
+          <>
+            <div className="px-3 py-3 border-b border-border flex items-center gap-3 bg-card shrink-0 safe-area-pt">
+              <button
+                onClick={closeConversation}
+                aria-label="Retour"
+                className="lg:hidden w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors shrink-0"
+              >
+                <IconChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="w-9 h-9 rounded-full bg-gradient-ocean flex items-center justify-center text-white font-bold text-xs overflow-hidden shrink-0">
+                {selected.photo_url ? (
+                  <img src={selected.photo_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <>{selected.prenoms[0]}{selected.nom[0]}</>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{selected.prenoms} {selected.nom}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{selected.niveau_etudes}</p>
+              </div>
+            </div>
+
+            <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-3 bg-muted/20">
+              {loadingMsgs ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : messages.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Aucun message. Dis bonjour 👋</p>
+              ) : (
+                messages.map((m) => {
+                  const mine = m.sender_id === user.id;
+                  return (
+                    <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
+                          mine
+                            ? "bg-gradient-ocean text-primary-foreground rounded-br-sm"
+                            : "bg-card border border-border rounded-bl-sm"
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                        <p className={`text-[10px] mt-1 ${mine ? "text-white/70" : "text-muted-foreground"}`}>
+                          {new Date(m.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="px-3 py-3 border-t border-border bg-card shrink-0 safe-area-pb">
+              <div className="flex items-center gap-2">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  placeholder="Votre message"
+                  className="flex-1 bg-muted/50 rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!input.trim() || sending}
+                  aria-label="Envoyer"
+                  className="w-10 h-10 rounded-full bg-gradient-ocean text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-40 transition active:scale-95"
+                >
+                  <IconSend className="w-4.5 h-4.5" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("calendrier");
   const [user, setUser] = useState<User | null>(null);
@@ -1892,6 +2327,7 @@ function DashboardPage() {
   const tabs = [
     { key: "calendrier" as DashboardTab, icon: IconCalendar, label: "Calendrier", badge: stats.cetteSemaine > 0 ? stats.cetteSemaine : undefined },
     { key: "cours" as DashboardTab, icon: IconBook, label: "Cours", badge: enregistrements.length > 0 ? enregistrements.length : undefined },
+    { key: "messagerie" as DashboardTab, icon: IconMessage, label: "Messages" },
     { key: "parametres" as DashboardTab, icon: IconSettings, label: "Paramètres" },
   ];
 
@@ -1963,7 +2399,8 @@ function DashboardPage() {
 
       {/* ═══ CONTENU PRINCIPAL ═══ */}
       <main className="flex-1 min-w-0 min-h-screen pb-24 lg:pb-0">
-        {/* Header mobile */}
+        {/* Header mobile — masqué en Messagerie (plein écran type app de chat) */}
+        {activeTab !== "messagerie" && (
         <header className="lg:hidden sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1987,6 +2424,7 @@ function DashboardPage() {
             </div>
           </div>
         </header>
+        )}
 
         {/* Header desktop */}
         <header className="hidden lg:flex sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border px-8 py-4 items-center justify-between">
@@ -2005,11 +2443,13 @@ function DashboardPage() {
         <div className="px-4 py-5 lg:px-8 lg:py-6 max-w-5xl">
           {activeTab === "calendrier" && <CalendrierTab sessions={sessions} user={user} />}
           {activeTab === "cours" && <CoursTab enregistrements={enregistrements} />}
+          {activeTab === "messagerie" && <MessagerieTab user={user} onExit={() => setActiveTab("calendrier")} />}
           {activeTab === "parametres" && <ParametresTab user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />}
         </div>
       </main>
 
       {/* ═══ NAVIGATION MOBILE BOTTOM ═══ */}
+      {activeTab !== "messagerie" && (
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-xl border-t border-border z-40 safe-area-pb">
         <div className="flex items-center justify-around px-2 py-2">
           {tabs.map((tab) => {
@@ -2039,6 +2479,7 @@ function DashboardPage() {
           })}
         </div>
       </nav>
+      )}
     </div>
   );
 }
