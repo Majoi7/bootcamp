@@ -17,6 +17,22 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+// Met à jour le badge numérique sur l'icône de l'app PWA (comme sur
+// WhatsApp/Gmail) via la Badging API. Non supportée partout (surtout hors
+// PWA installée), donc on échoue silencieusement si l'API est absente.
+function updateAppBadge(count: number) {
+  if (!("setAppBadge" in navigator)) return;
+  try {
+    if (count > 0) {
+      (navigator as any).setAppBadge(count).catch(() => {});
+    } else if ("clearAppBadge" in navigator) {
+      (navigator as any).clearAppBadge().catch(() => {});
+    }
+  } catch {
+    // Badging API indisponible sur ce navigateur/appareil : on ignore.
+  }
+}
+
 // Active les notifications push pour ce téléphone : demande la permission,
 // s'abonne via le Service Worker, puis enregistre l'abonnement dans Supabase
 // (lié au participant courant) pour que l'admin puisse le notifier.
@@ -1683,7 +1699,7 @@ interface NotifRow {
 
 const LAST_SEEN_KEY = "amphix_notif_last_seen";
 
-function NotificationBell({ compact = false }: { compact?: boolean }) {
+function NotificationBell({ compact = false, onUnreadChange }: { compact?: boolean; onUnreadChange?: (n: number) => void }) {
   const [open, setOpen] = useState(false);
   const [notifs, setNotifs] = useState<NotifRow[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -1703,7 +1719,9 @@ function NotificationBell({ compact = false }: { compact?: boolean }) {
       .limit(20);
     if (!error && data) {
       setNotifs(data);
-      setUnreadCount(computeUnread(data));
+      const n = computeUnread(data);
+      setUnreadCount(n);
+      onUnreadChange?.(n);
     }
   };
 
@@ -1745,6 +1763,7 @@ function NotificationBell({ compact = false }: { compact?: boolean }) {
       // On marque tout comme lu à l'ouverture
       localStorage.setItem(LAST_SEEN_KEY, String(Date.now()));
       setUnreadCount(0);
+      onUnreadChange?.(0);
     }
   };
 
@@ -2227,6 +2246,7 @@ function DashboardPage() {
   const [enregistrements, setEnregistrements] = useState<Enregistrement[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [notifUnread, setNotifUnread] = useState(0);
 
   // ─── Compteur de messages non lus (badge onglet Messages) ───
   async function refreshUnreadMessages(participantId: string) {
@@ -2334,7 +2354,15 @@ function DashboardPage() {
     };
   }, [user?.id]);
 
+  // ─── Badge sur l'icône de l'app PWA ───
+  // Combine messages non lus + notifications non lues, mis à jour à chaque
+  // changement (donc en direct grâce aux effets réaltime ci-dessus).
+  useEffect(() => {
+    updateAppBadge(unreadMessages + notifUnread);
+  }, [unreadMessages, notifUnread]);
+
   const handleLogout = () => {
+    updateAppBadge(0);
     localStorage.removeItem("amphix_session");
     window.location.href = "/connexion";
   };
@@ -2465,7 +2493,7 @@ function DashboardPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <NotificationBell compact />
+              <NotificationBell compact onUnreadChange={setNotifUnread} />
               <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${user.paye ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                 {user.paye ? "✓ Payé" : "Non payé"}
               </div>
@@ -2481,7 +2509,7 @@ function DashboardPage() {
             <p className="text-xs text-muted-foreground">{user.niveau_etudes}</p>
           </div>
           <div className="flex items-center gap-3">
-            <NotificationBell />
+            <NotificationBell onUnreadChange={setNotifUnread} />
             <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${user.paye ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
               {user.paye ? "✓ Payé" : "Non payé"}
             </div>

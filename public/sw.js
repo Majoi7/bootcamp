@@ -88,6 +88,14 @@ self.addEventListener('push', (event) => {
         data: { url: data.url || '/dashboard' },
     };
 
+    // Badge sur l'icône de l'app (visible même app fermée). On ne connaît
+    // pas le compteur exact ici (pas de session ouverte), donc on pose un
+    // badge générique ; il sera resynchronisé au vrai total dès que
+    // l'utilisateur rouvre l'app (voir updateAppBadge dans dashboard.tsx).
+    if ('setAppBadge' in self.registration) {
+        self.registration.setAppBadge().catch(() => {});
+    }
+
     event.waitUntil(self.registration.showNotification(title, options));
 });
 
