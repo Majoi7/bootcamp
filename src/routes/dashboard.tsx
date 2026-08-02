@@ -2084,6 +2084,42 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
     return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
   };
 
+  // Libellé du séparateur de date au-dessus d'un groupe de messages
+  // (Aujourd'hui / Hier / date complète), façon Messenger.
+  const dateDivider = (iso: string) => {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return "Aujourd'hui";
+    if (d.toDateString() === yesterday.toDateString()) return "Hier";
+    return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  };
+
+  // Regroupe les messages par jour, puis par petites rafales du même
+  // expéditeur (< 3 min d'écart) pour n'afficher l'en-tête nom/heure
+  // qu'une fois par rafale — comme sur Messenger/WhatsApp.
+  const messageGroups = useMemo(() => {
+    const days: { dateKey: string; blocks: { senderId: string; msgs: MessageRow[] }[] }[] = [];
+    for (const m of messages) {
+      const dateKey = new Date(m.created_at).toDateString();
+      let day = days[days.length - 1];
+      if (!day || day.dateKey !== dateKey) {
+        day = { dateKey, blocks: [] };
+        days.push(day);
+      }
+      const lastBlock = day.blocks[day.blocks.length - 1];
+      const lastMsg = lastBlock?.msgs[lastBlock.msgs.length - 1];
+      const gapMs = lastMsg ? new Date(m.created_at).getTime() - new Date(lastMsg.created_at).getTime() : Infinity;
+      if (lastBlock && lastBlock.senderId === m.sender_id && gapMs < 3 * 60 * 1000) {
+        lastBlock.msgs.push(m);
+      } else {
+        day.blocks.push({ senderId: m.sender_id, msgs: [m] });
+      }
+    }
+    return days;
+  }, [messages]);
+
   // Fusionne l'annuaire des participants avec leur conversation existante
   // (s'il y en a une), trié par dernier message reçu/envoyé.
   const list = useMemo(() => {
@@ -2111,9 +2147,9 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-card flex overflow-hidden lg:static lg:inset-auto lg:z-auto lg:rounded-3xl lg:border lg:border-border lg:shadow-soft lg:h-[calc(100dvh-150px)]">
+    <div className="fixed inset-0 z-50 h-[100dvh] bg-card flex overflow-hidden lg:static lg:inset-auto lg:z-auto lg:h-[calc(100dvh-150px)] lg:rounded-3xl lg:border lg:border-border lg:shadow-soft">
       {/* ═══ LISTE DES PARTICIPANTS ═══ */}
-      <div className={`w-full lg:w-80 lg:shrink-0 border-r border-border flex-col ${selected ? "hidden lg:flex" : "flex"}`}>
+      <div className={`w-full lg:w-80 lg:shrink-0 min-h-0 border-r border-border flex-col ${selected ? "hidden lg:flex" : "flex"}`}>
         <div className="px-4 pt-4 pb-4 border-b border-border shrink-0 safe-area-pt">
           <div className="flex items-center gap-2 mb-3">
             <button
@@ -2134,12 +2170,12 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher"
-              className="w-full bg-muted/50 rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
+              className="w-full bg-muted/50 rounded-xl pl-9 pr-3 py-2.5 text-base lg:text-sm outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide overscroll-contain">
           {list.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8 px-4">Aucun participant trouvé.</p>
           ) : (
@@ -2190,7 +2226,7 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
       </div>
 
       {/* ═══ FIL DE DISCUSSION ═══ */}
-      <div className={`flex-1 min-w-0 flex-col ${selected ? "flex" : "hidden lg:flex"}`}>
+      <div className={`flex-1 min-w-0 min-h-0 flex-col ${selected ? "flex" : "hidden lg:flex"}`}>
         {!selected ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-4">
@@ -2222,7 +2258,7 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
               </div>
             </div>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-3 bg-muted/20">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide overscroll-contain px-4 py-4 space-y-3 bg-muted/20">
               {loadingMsgs ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
@@ -2230,35 +2266,79 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
               ) : messages.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">Aucun message. Dis bonjour 👋</p>
               ) : (
-                messages.map((m) => {
-                  const mine = m.sender_id === user.id;
-                  return (
-                    <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
-                          mine
-                            ? "bg-gradient-ocean text-primary-foreground rounded-br-sm"
-                            : "bg-card border border-border rounded-bl-sm"
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                        <p className={`text-[10px] mt-1 flex items-center gap-1 ${mine ? "justify-end text-white/70" : "text-muted-foreground"}`}>
-                          <span>{new Date(m.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-                          {mine && (
-                            m.read_at ? (
-                              <span className="inline-flex items-center gap-0.5">
-                                <IconCheckDouble className="w-3 h-3" />
-                                <span>Vu</span>
-                              </span>
-                            ) : (
-                              <IconCheck className="w-3 h-3" />
-                            )
-                          )}
-                        </p>
-                      </div>
+                messageGroups.map((day) => (
+                  <div key={day.dateKey}>
+                    <div className="flex justify-center my-2">
+                      <span className="text-[10px] font-semibold text-muted-foreground bg-muted/70 px-3 py-1 rounded-full uppercase tracking-wide">
+                        {dateDivider(day.blocks[0].msgs[0].created_at)}
+                      </span>
                     </div>
-                  );
-                })
+                    <div className="space-y-3">
+                      {day.blocks.map((block, blockIdx) => {
+                        const mine = block.senderId === user.id;
+                        return (
+                          <div key={blockIdx} className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}>
+                            {/* Avatar : uniquement sur mes propres messages, aligné en bas du groupe */}
+                            {mine && (
+                              <div className="w-7 h-7 rounded-full bg-gradient-ocean flex items-center justify-center text-white font-bold text-[9px] overflow-hidden shrink-0">
+                                {user.photo_url ? (
+                                  <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <>{user.prenoms[0]}{user.nom[0]}</>
+                                )}
+                              </div>
+                            )}
+                            <div className={`flex flex-col max-w-[75%] ${mine ? "items-end" : "items-start"}`}>
+                              {/* En-tête : nom (si reçu) + heure du premier message de la rafale */}
+                              <p className={`text-[11px] text-muted-foreground px-1 mb-1 ${mine ? "text-right" : "text-left"}`}>
+                                {mine ? (
+                                  <>
+                                    {new Date(block.msgs[0].created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}{" "}
+                                    <span className="font-semibold text-foreground/70">Vous</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-semibold text-foreground/70">{selected.prenoms} {selected.nom}</span>{" "}
+                                    {new Date(block.msgs[0].created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                  </>
+                                )}
+                              </p>
+                              <div className={`flex flex-col gap-1 ${mine ? "items-end" : "items-start"}`}>
+                                {block.msgs.map((m, i) => {
+                                  const isLast = i === block.msgs.length - 1;
+                                  return (
+                                    <div
+                                      key={m.id}
+                                      className={`rounded-2xl px-4 py-2.5 text-sm ${
+                                        mine
+                                          ? `bg-gradient-ocean text-primary-foreground ${isLast ? "rounded-br-sm" : ""}`
+                                          : `bg-card border border-border ${isLast ? "rounded-bl-sm" : ""}`
+                                      }`}
+                                    >
+                                      <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{m.content}</p>
+                                      {mine && isLast && (
+                                        <p className="text-[10px] mt-1 flex items-center justify-end gap-1 text-white/70">
+                                          {m.read_at ? (
+                                            <span className="inline-flex items-center gap-0.5">
+                                              <IconCheckDouble className="w-3 h-3" />
+                                              <span>Vu</span>
+                                            </span>
+                                          ) : (
+                                            <IconCheck className="w-3 h-3" />
+                                          )}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
               )}
             </div>
 
@@ -2274,7 +2354,7 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
                     }
                   }}
                   placeholder="Votre message"
-                  className="flex-1 bg-muted/50 rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
+                  className="flex-1 min-w-0 bg-muted/50 rounded-full px-4 py-2.5 text-base lg:text-sm outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
                 />
                 <button
                   onClick={sendMessage}
@@ -2282,7 +2362,7 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
                   aria-label="Envoyer"
                   className="w-10 h-10 rounded-full bg-gradient-ocean text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-40 transition active:scale-95"
                 >
-                  <IconSend className="w-4.5 h-4.5" />
+                  <IconSend className="w-[18px] h-[18px]" />
                 </button>
               </div>
             </div>
@@ -2301,6 +2381,8 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [notifUnread, setNotifUnread] = useState(0);
+  // ─── Badge "Cours" : disparaît définitivement une fois l'onglet visité ───
+  const [coursSeen, setCoursSeen] = useState(false);
 
   // ─── Compteur de messages non lus (badge onglet Messages) ───
   async function refreshUnreadMessages(participantId: string) {
@@ -2384,6 +2466,13 @@ function DashboardPage() {
     init();
   }, []);
 
+  // ─── Badge "Cours" déjà vu (persisté par utilisateur) ───
+  useEffect(() => {
+    if (!user) return;
+    const seen = localStorage.getItem(`amphix_cours_seen_${user.id}`);
+    if (seen === "1") setCoursSeen(true);
+  }, [user]);
+
   // ─── Mise à jour en direct du badge "messages non lus" ───
   // Se déclenche sur tout nouveau message (pour incrémenter) et sur toute
   // mise à jour (quand un message est marqué lu à l'ouverture d'une
@@ -2454,9 +2543,17 @@ function DashboardPage() {
     );
   }
 
+  const handleTabClick = (key: DashboardTab) => {
+    setActiveTab(key);
+    if (key === "cours" && !coursSeen && user) {
+      setCoursSeen(true);
+      localStorage.setItem(`amphix_cours_seen_${user.id}`, "1");
+    }
+  };
+
   const tabs = [
     { key: "calendrier" as DashboardTab, icon: IconCalendar, label: "Calendrier", badge: stats.cetteSemaine > 0 ? stats.cetteSemaine : undefined },
-    { key: "cours" as DashboardTab, icon: IconBook, label: "Cours", badge: enregistrements.length > 0 ? enregistrements.length : undefined },
+    { key: "cours" as DashboardTab, icon: IconBook, label: "Cours", badge: !coursSeen && enregistrements.length > 0 ? enregistrements.length : undefined },
     { key: "messagerie" as DashboardTab, icon: IconMessage, label: "Messages", badge: unreadMessages > 0 ? unreadMessages : undefined },
     { key: "parametres" as DashboardTab, icon: IconSettings, label: "Paramètres" },
   ];
@@ -2489,7 +2586,7 @@ function DashboardPage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => handleTabClick(tab.key)}
                 className={[
                   "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative",
                   isActive
@@ -2588,7 +2685,7 @@ function DashboardPage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => handleTabClick(tab.key)}
                 className={[
                   "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl transition-all duration-200 min-w-[64px] relative",
                   isActive ? "text-primary" : "text-muted-foreground",
