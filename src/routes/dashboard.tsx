@@ -40,6 +40,18 @@ async function subscribeToPush(participantId: string): Promise<{ ok: boolean; er
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     return { ok: false, error: "Les notifications ne sont pas supportées sur cet appareil/navigateur." };
   }
+  if (!("Notification" in window)) {
+    // Cas très fréquent sur iPhone : Safari (hors PWA installée) n'expose
+    // même pas l'API Notification. Avant, ça faisait planter la fonction
+    // avec un message générique et incompréhensible pour l'utilisateur.
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    return {
+      ok: false,
+      error: isIOS
+        ? "Sur iPhone, installe d'abord l'application (Partager → Sur l'écran d'accueil), puis réessaie depuis l'app installée."
+        : "Les notifications ne sont pas supportées sur ce navigateur.",
+    };
+  }
   if (!VAPID_PUBLIC_KEY) {
     return { ok: false, error: "Configuration des notifications manquante (VITE_VAPID_PUBLIC_KEY)." };
   }
@@ -1418,6 +1430,28 @@ function ParametresTab({
   const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "enabled" | "error">("idle");
   const [notifError, setNotifError] = useState("");
 
+  // Avant : le statut repartait toujours à "idle" au montage du composant,
+  // donc le bouton "Activer les notifications" réapparaissait même quand
+  // elles étaient déjà actives (ex: en revenant sur Paramètres). On vérifie
+  // maintenant le véritable état (permission + abonnement actif) au chargement.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+      if (!("serviceWorker" in navigator)) return;
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        const subscription = await registration?.pushManager.getSubscription();
+        if (!cancelled && subscription) setNotifStatus("enabled");
+      } catch {
+        // On laisse le statut à "idle" : l'utilisateur pourra retenter manuellement.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleEnableNotifications = async () => {
     setNotifStatus("loading");
     setNotifError("");
@@ -1621,6 +1655,11 @@ function ParametresTab({
             </svg>
             Notifications activées
           </div>
+        ) : typeof Notification !== "undefined" && Notification.permission === "denied" ? (
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+            Les notifications ont été bloquées pour ce site. Pour les activer, va dans les réglages
+            de ton navigateur (icône 🔒 ou ⓘ à côté de l'adresse) → Notifications → Autoriser.
+          </p>
         ) : (
           <>
             <button
