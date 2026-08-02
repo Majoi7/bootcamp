@@ -1883,6 +1883,7 @@ function orderedPair(a: string, b: string): [string, string] {
 function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
   const [participants, setParticipants] = useState<ParticipantLite[]>([]);
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<ParticipantLite | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -1905,7 +1906,31 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
         .or(`participant_a_id.eq.${user.id},participant_b_id.eq.${user.id}`),
     ]);
     if (parts) setParticipants(parts);
-    if (convs) setConversations(convs);
+    if (convs) {
+      setConversations(convs);
+      loadUnreadCounts(convs.map((c) => c.id));
+    }
+  };
+
+  // Compte les messages non lus reçus, par conversation, pour savoir quels
+  // éléments de la liste doivent s'afficher en gras.
+  const loadUnreadCounts = async (convIds: string[]) => {
+    if (convIds.length === 0) {
+      setUnreadCounts({});
+      return;
+    }
+    const { data } = await supabase
+      .from("messages")
+      .select("conversation_id")
+      .in("conversation_id", convIds)
+      .neq("sender_id", user.id)
+      .is("read_at", null);
+
+    const counts: Record<string, number> = {};
+    (data || []).forEach((m: { conversation_id: string }) => {
+      counts[m.conversation_id] = (counts[m.conversation_id] || 0) + 1;
+    });
+    setUnreadCounts(counts);
   };
 
   // Chargement initial + mise à jour en direct de la liste (nouvelle
@@ -1970,6 +1995,15 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
 
     setMessages(msgs || []);
     setLoadingMsgs(false);
+
+    // On efface immédiatement le compteur/le gras localement (pas besoin
+    // d'attendre le round-trip réseau de l'update ci-dessous).
+    setUnreadCounts((prev) => {
+      if (!prev[conv!.id]) return prev;
+      const next = { ...prev };
+      delete next[conv!.id];
+      return next;
+    });
 
     await supabase
       .from("messages")
@@ -2113,7 +2147,9 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
           {list.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8 px-4">Aucun participant trouvé.</p>
           ) : (
-            list.map(({ p, conv }) => (
+            list.map(({ p, conv }) => {
+              const unread = conv ? unreadCounts[conv.id] || 0 : 0;
+              return (
               <button
                 key={p.id}
                 onClick={() => openConversation(p)}
@@ -2130,17 +2166,29 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold truncate">{p.prenoms} {p.nom}</p>
+                    <p className={`text-sm truncate ${unread > 0 ? "font-bold text-foreground" : "font-semibold"}`}>
+                      {p.prenoms} {p.nom}
+                    </p>
                     {conv?.last_message_at && (
-                      <span className="text-[10px] text-muted-foreground shrink-0">{timeShort(conv.last_message_at)}</span>
+                      <span className={`text-[10px] shrink-0 ${unread > 0 ? "text-primary font-bold" : "text-muted-foreground"}`}>
+                        {timeShort(conv.last_message_at)}
+                      </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {conv?.last_message ? conv.last_message : "Aucun message pour l'instant"}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mt-0.5">
+                    <p className={`text-xs truncate ${unread > 0 ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+                      {conv?.last_message ? conv.last_message : "Aucun message pour l'instant"}
+                    </p>
+                    {unread > 0 && (
+                      <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                        {unread > 9 ? "9+" : unread}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
-            ))
+              );
+            })
           )}
         </div>
       </div>
