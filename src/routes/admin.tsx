@@ -228,6 +228,11 @@ const Icons = {
       <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
     </svg>
   ),
+  mega: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M12 3l9 8h-3v9h-4v-6H10v6H6v-9H3z"/>
+    </svg>
+  ),
   externalLink: (
     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -2312,6 +2317,15 @@ function getYouTubeThumbnail(url: string): string | null {
   return null;
 }
 
+// Détecte la plateforme d'hébergement du lien (YouTube, MEGA, ou autre)
+// pour adapter l'affichage (miniature, badge, libellé du bouton).
+type Platform = "youtube" | "mega" | "other";
+function getPlatform(url: string): Platform {
+  if (/(?:youtube\.com|youtu\.be)/i.test(url)) return "youtube";
+  if (/mega\.(?:nz|co\.nz)/i.test(url)) return "mega";
+  return "other";
+}
+
 function EnregistrementsTab({
   enregistrements,
   cours,
@@ -2424,8 +2438,8 @@ function EnregistrementsTab({
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight">Enregistrements vidéo (YouTube)</h2>
-          <p className="text-sm text-slate-500 mt-1">Centralisez les liens YouTube des sessions enregistrées pour que les participants puissent les revoir.</p>
+          <h2 className="text-2xl font-extrabold tracking-tight">Enregistrements vidéo (YouTube / MEGA)</h2>
+          <p className="text-sm text-slate-500 mt-1">Centralisez les liens YouTube ou MEGA des sessions enregistrées pour que les participants puissent les revoir.</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(!showForm); }}
@@ -2454,17 +2468,17 @@ function EnregistrementsTab({
             />
           </div>
           <div>
-            <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Lien YouTube *</label>
+            <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Lien de la vidéo (YouTube ou MEGA) *</label>
             <input
               type="url"
               value={lien}
               onChange={(e) => setLien(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=..."
+              placeholder="https://www.youtube.com/watch?v=... ou https://mega.nz/file/..."
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
               required
             />
             <p className="text-xs text-slate-400 mt-1.5">
-              Colle ici le lien de la vidéo YouTube (mise en ligne publique ou non répertoriée). La miniature s'affichera automatiquement.
+              Colle ici le lien YouTube (mise en ligne publique ou non répertoriée) ou le lien de partage MEGA du fichier vidéo. La plateforme est détectée automatiquement.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -2572,13 +2586,22 @@ function EnregistrementsTab({
       {/* Liste des enregistrements */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((rec) => {
-          const thumbnail = getYouTubeThumbnail(rec.lien);
+          const platform = getPlatform(rec.lien);
+          const thumbnail = platform === "youtube" ? getYouTubeThumbnail(rec.lien) : null;
           return (
           <div key={rec.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex flex-col overflow-hidden">
             {/* Miniature vidéo */}
             <div className="relative w-full aspect-video bg-slate-100 overflow-hidden">
               {thumbnail ? (
                 <img src={thumbnail} alt={rec.titre} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              ) : platform === "mega" ? (
+                <div
+                  className="w-full h-full flex flex-col items-center justify-center gap-1.5"
+                  style={{ backgroundColor: "#d9272e1a", color: "#d9272e" }}
+                >
+                  {Icons.mega}
+                  <span className="text-[11px] font-bold tracking-wide">MEGA</span>
+                </div>
               ) : (
                 <div
                   className="w-full h-full flex items-center justify-center"
@@ -2623,7 +2646,7 @@ function EnregistrementsTab({
                 rel="noopener noreferrer"
                 className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-800 transition active:scale-95"
               >
-                Voir sur YouTube
+                {platform === "mega" ? "Voir sur MEGA" : platform === "youtube" ? "Voir sur YouTube" : "Voir l'enregistrement"}
                 {Icons.externalLink}
               </a>
             </div>
@@ -2641,7 +2664,7 @@ function EnregistrementsTab({
             {Icons.video}
           </div>
           <p className="text-slate-500 font-medium">Aucun enregistrement pour le moment</p>
-          <p className="text-sm text-slate-400 mt-1">Ajoutez le lien de votre premier cours enregistré sur YouTube.</p>
+          <p className="text-sm text-slate-400 mt-1">Ajoutez le lien de votre premier cours enregistré sur YouTube ou MEGA.</p>
         </div>
       )}
     </div>

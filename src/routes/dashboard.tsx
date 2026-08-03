@@ -266,6 +266,14 @@ function IconVideo({ className = "w-6 h-6" }: { className?: string }) {
   );
 }
 
+function IconMega({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M12 3l9 8h-3v9h-4v-6H10v6H6v-9H3z" />
+    </svg>
+  );
+}
+
 function IconChevronLeft({ className = "w-6 h-6" }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -1011,6 +1019,15 @@ function getYouTubeThumbnail(url: string): string | null {
   return null;
 }
 
+// Détecte la plateforme d'hébergement du lien (YouTube, MEGA, ou autre)
+// pour adapter l'affichage (miniature, badge).
+type Platform = "youtube" | "mega" | "other";
+function getPlatform(url: string): Platform {
+  if (/(?:youtube\.com|youtu\.be)/i.test(url)) return "youtube";
+  if (/mega\.(?:nz|co\.nz)/i.test(url)) return "mega";
+  return "other";
+}
+
 function CoursTab({ enregistrements }: { enregistrements: Enregistrement[] }) {
   const [search, setSearch] = useState("");
   const [selectedProfId, setSelectedProfId] = useState<string | null>(null);
@@ -1152,7 +1169,8 @@ function CoursTab({ enregistrements }: { enregistrements: Enregistrement[] }) {
         <div className="grid gap-3 sm:grid-cols-2">
           {filtres.map((rec) => {
             const couleur = rec.cours?.couleur || "#3b82f6";
-            const thumbnail = getYouTubeThumbnail(rec.lien);
+            const platform = getPlatform(rec.lien);
+            const thumbnail = platform === "youtube" ? getYouTubeThumbnail(rec.lien) : null;
             return (
               <a
                 key={rec.id}
@@ -1161,7 +1179,7 @@ function CoursTab({ enregistrements }: { enregistrements: Enregistrement[] }) {
                 rel="noopener noreferrer"
                 className="group bg-card rounded-2xl border border-border overflow-hidden shadow-soft active:scale-[0.98] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
               >
-                {/* Miniature vidéo (YouTube) */}
+                {/* Miniature vidéo (YouTube ou MEGA) */}
                 <div className="relative w-full aspect-video bg-muted overflow-hidden">
                   {thumbnail ? (
                     <img
@@ -1170,6 +1188,11 @@ function CoursTab({ enregistrements }: { enregistrements: Enregistrement[] }) {
                       loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
+                  ) : platform === "mega" ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-1.5" style={{ backgroundColor: "#d9272e20", color: "#d9272e" }}>
+                      <IconMega className="w-8 h-8" />
+                      <span className="text-[10px] font-bold tracking-wide">MEGA</span>
+                    </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: couleur + "20", color: couleur }}>
                       <IconVideo className="w-8 h-8" />
