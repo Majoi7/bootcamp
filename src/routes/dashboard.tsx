@@ -1881,6 +1881,7 @@ interface ParticipantLite {
   prenoms: string;
   photo_url: string | null;
   niveau_etudes: string;
+  certifie: string | null;
 }
 
 interface ConversationRow {
@@ -1906,6 +1907,22 @@ function orderedPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
 
+// Petit badge "certifié" façon réseaux sociaux — affiché uniquement si
+// participants.certifie === "oui".
+function CertifiedBadge({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg
+      className={`${className} text-primary shrink-0 inline-block align-middle`}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-label="Profil certifié"
+    >
+      <path d="M12 2l2.4 2.1 3.1-.7.9 3 2.8 1.5-.7 3.1 1.6 2.8-2.4 2.1.3 3.2-3.2.3-1.7 2.7L12 21l-2.9 1.1-1.7-2.7-3.2-.3.3-3.2-2.4-2.1L3.7 11 3 7.9l2.8-1.5.9-3 3.1.7L12 2z" />
+      <path d="M9.2 12.4l1.9 1.9 3.7-3.9" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
 function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
   const [participants, setParticipants] = useState<ParticipantLite[]>([]);
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
@@ -1923,7 +1940,7 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
     const [{ data: parts }, { data: convs }] = await Promise.all([
       supabase
         .from("participants")
-        .select("id, nom, prenoms, photo_url, niveau_etudes")
+        .select("id, nom, prenoms, photo_url, niveau_etudes, certifie")
         .neq("id", user.id)
         .order("prenoms"),
       supabase
@@ -2237,8 +2254,9 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <p className={`text-sm truncate ${unread > 0 ? "font-bold text-foreground" : "font-semibold"}`}>
-                      {p.prenoms} {p.nom}
+                    <p className={`text-sm truncate flex items-center gap-1 ${unread > 0 ? "font-bold text-foreground" : "font-semibold"}`}>
+                      <span className="truncate">{p.prenoms} {p.nom}</span>
+                      {p.certifie === "oui" && <CertifiedBadge />}
                     </p>
                     {conv?.last_message_at && (
                       <span className={`text-[10px] shrink-0 ${unread > 0 ? "text-primary font-bold" : "text-muted-foreground"}`}>
@@ -2292,7 +2310,10 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{selected.prenoms} {selected.nom}</p>
+                <p className="text-sm font-semibold truncate flex items-center gap-1">
+                  <span className="truncate">{selected.prenoms} {selected.nom}</span>
+                  {selected.certifie === "oui" && <CertifiedBadge />}
+                </p>
                 <p className="text-[11px] text-muted-foreground truncate">{selected.niveau_etudes}</p>
               </div>
             </div>
