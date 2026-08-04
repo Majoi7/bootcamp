@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProfRouteImport } from './routes/prof'
 import { Route as PresentationRouteImport } from './routes/presentation'
 import { Route as PaiementRouteImport } from './routes/paiement'
 import { Route as InscritRouteImport } from './routes/inscrit'
@@ -19,6 +20,11 @@ import { Route as AvisRouteImport } from './routes/avis'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ProfRoute = ProfRouteImport.update({
+  id: '/prof',
+  path: '/prof',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PresentationRoute = PresentationRouteImport.update({
   id: '/presentation',
   path: '/presentation',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/inscrit': typeof InscritRoute
   '/paiement': typeof PaiementRoute
   '/presentation': typeof PresentationRoute
+  '/prof': typeof ProfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/inscrit': typeof InscritRoute
   '/paiement': typeof PaiementRoute
   '/presentation': typeof PresentationRoute
+  '/prof': typeof ProfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/inscrit': typeof InscritRoute
   '/paiement': typeof PaiementRoute
   '/presentation': typeof PresentationRoute
+  '/prof': typeof ProfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/inscrit'
     | '/paiement'
     | '/presentation'
+    | '/prof'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/inscrit'
     | '/paiement'
     | '/presentation'
+    | '/prof'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/inscrit'
     | '/paiement'
     | '/presentation'
+    | '/prof'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,10 +157,18 @@ export interface RootRouteChildren {
   InscritRoute: typeof InscritRoute
   PaiementRoute: typeof PaiementRoute
   PresentationRoute: typeof PresentationRoute
+  ProfRoute: typeof ProfRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/prof': {
+      id: '/prof'
+      path: '/prof'
+      fullPath: '/prof'
+      preLoaderRoute: typeof ProfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/presentation': {
       id: '/presentation'
       path: '/presentation'
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   InscritRoute: InscritRoute,
   PaiementRoute: PaiementRoute,
   PresentationRoute: PresentationRoute,
+  ProfRoute: ProfRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

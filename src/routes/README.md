@@ -197,3 +197,6 @@ Idées d'évolutions possibles (non planifiées) :
 - [ ] Migration vers Supabase Auth pour une sécurité RLS fine, par utilisateur
 - [ ] Notifications automatiques (rappel de séance, relance de paiement) via WhatsApp Business API
 - [ ] Export des statistiques du dashboard admin en PDF/Excel
+
+
+ProfsAmphix2026
