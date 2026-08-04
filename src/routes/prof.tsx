@@ -44,6 +44,29 @@ interface Enregistrement {
   professeur?: Professeur;
 }
 
+interface Participant {
+  id: string;
+  nom: string;
+  prenoms: string;
+}
+
+interface DevoirSoumission {
+  id: string;
+  participant_id: string;
+  cours_id: string;
+  fichier_nom: string;
+  fichier_url: string;
+  created_at: string;
+}
+
+interface NoteCours {
+  id: string;
+  participant_id: string;
+  cours_id: string;
+  note1: number | null;
+  note2: number | null;
+}
+
 /* ─── Icônes (sous-ensemble nécessaire à cette page) ─── */
 const Icons = {
   video: (
@@ -92,6 +115,25 @@ const Icons = {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
       <polyline points="16 17 21 12 16 7"/>
       <line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+  ),
+  clipboard: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+    </svg>
+  ),
+  fileText: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+  ),
+  chevronDown: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <polyline points="6 9 12 15 18 9"/>
     </svg>
   ),
 };
@@ -230,9 +272,11 @@ function ProtectedProfPage() {
 
 /* ─── Page principale (profs) : uniquement les enregistrements ─── */
 function ProfPage({ onLogout }: { onLogout: () => void }) {
+  const [section, setSection] = useState<"enregistrements" | "devoirs">("enregistrements");
   const [cours, setCours] = useState<Cours[]>([]);
   const [professeurs, setProfesseurs] = useState<Professeur[]>([]);
   const [enregistrements, setEnregistrements] = useState<Enregistrement[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchCours = async () => {
@@ -253,9 +297,17 @@ function ProfPage({ onLogout }: { onLogout: () => void }) {
     if (!error) setEnregistrements(data || []);
   };
 
+  const fetchParticipants = async () => {
+    const { data, error } = await supabase
+      .from("participants")
+      .select("id, nom, prenoms")
+      .order("nom", { ascending: true });
+    if (!error) setParticipants(data || []);
+  };
+
   const loadAll = async () => {
     setLoading(true);
-    await Promise.all([fetchCours(), fetchProfesseurs(), fetchEnregistrements()]);
+    await Promise.all([fetchCours(), fetchProfesseurs(), fetchEnregistrements(), fetchParticipants()]);
     setLoading(false);
   };
 
@@ -285,15 +337,37 @@ function ProfPage({ onLogout }: { onLogout: () => void }) {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        {/* Navigation entre sections */}
+        <div className="inline-flex bg-white border border-slate-200 rounded-full p-1 gap-1 mb-6 shadow-sm">
+          <button
+            onClick={() => setSection("enregistrements")}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+              section === "enregistrements" ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Enregistrements
+          </button>
+          <button
+            onClick={() => setSection("devoirs")}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+              section === "devoirs" ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Devoirs &amp; Notes
+          </button>
+        </div>
+
         {loading ? (
           <div className="text-center py-20 text-slate-400 text-sm">Chargement...</div>
-        ) : (
+        ) : section === "enregistrements" ? (
           <EnregistrementsTab
             enregistrements={enregistrements}
             cours={cours}
             professeurs={professeurs}
             onRefresh={fetchEnregistrements}
           />
+        ) : (
+          <DevoirsNotesProfTab cours={cours} participants={participants} />
         )}
       </main>
     </div>
@@ -643,6 +717,249 @@ function EnregistrementsTab({
           </div>
           <p className="text-slate-500 font-medium">Aucun enregistrement pour le moment</p>
           <p className="text-sm text-slate-400 mt-1">Ajoutez le lien de votre premier cours enregistré sur YouTube ou MEGA.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   DEVOIRS & NOTES — le prof choisit un cours, consulte
+   les fichiers soumis par un participant et le note.
+   ═══════════════════════════════════════════════════ */
+function DevoirsNotesProfTab({ cours, participants }: { cours: Cours[]; participants: Participant[] }) {
+  const [coursId, setCoursId] = useState("");
+  const [search, setSearch] = useState("");
+  const [soumissions, setSoumissions] = useState<DevoirSoumission[]>([]);
+  const [notes, setNotes] = useState<NoteCours[]>([]);
+  const [loadingCours, setLoadingCours] = useState(false);
+  const [openParticipantId, setOpenParticipantId] = useState<string | null>(null);
+
+  const fetchDataForCours = async (id: string) => {
+    setLoadingCours(true);
+    const [{ data: sData, error: sErr }, { data: nData, error: nErr }] = await Promise.all([
+      supabase.from("devoir_soumissions").select("*").eq("cours_id", id).order("created_at", { ascending: false }),
+      supabase.from("notes").select("*").eq("cours_id", id),
+    ]);
+    if (!sErr) setSoumissions(sData || []);
+    if (!nErr) setNotes(nData || []);
+    setLoadingCours(false);
+  };
+
+  const handleSelectCours = (id: string) => {
+    setCoursId(id);
+    setOpenParticipantId(null);
+    if (id) fetchDataForCours(id);
+    else { setSoumissions([]); setNotes([]); }
+  };
+
+  const filteredParticipants = useMemo(() => {
+    return participants.filter((p) => {
+      const full = `${p.prenoms} ${p.nom}`.toLowerCase();
+      return !search.trim() || full.includes(search.trim().toLowerCase());
+    });
+  }, [participants, search]);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h2 className="text-2xl font-extrabold tracking-tight">Devoirs &amp; Notes</h2>
+        <p className="text-sm text-slate-500 mt-1">Choisissez un cours pour consulter les devoirs soumis par chaque participant et lui attribuer une note.</p>
+      </div>
+
+      <div>
+        <label className="text-sm font-semibold text-slate-500 mb-1.5 block">Cours</label>
+        <select
+          value={coursId}
+          onChange={(e) => handleSelectCours(e.target.value)}
+          className="w-full sm:w-80 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+        >
+          <option value="">— Choisir un cours —</option>
+          {cours.map((c) => (
+            <option key={c.id} value={c.id}>{c.titre}</option>
+          ))}
+        </select>
+      </div>
+
+      {coursId && (
+        loadingCours ? (
+          <div className="text-center py-16 text-slate-400 text-sm">Chargement...</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="relative max-w-sm">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">{Icons.search}</span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un participant..."
+                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+              />
+            </div>
+
+            <div className="space-y-2.5">
+              {filteredParticipants.map((p) => {
+                const fichiers = soumissions.filter((s) => s.participant_id === p.id);
+                const note = notes.find((n) => n.participant_id === p.id);
+                const isOpen = openParticipantId === p.id;
+                return (
+                  <ParticipantDevoirRow
+                    key={p.id}
+                    participant={p}
+                    coursId={coursId}
+                    fichiers={fichiers}
+                    note={note}
+                    isOpen={isOpen}
+                    onToggle={() => setOpenParticipantId(isOpen ? null : p.id)}
+                    onSaved={() => fetchDataForCours(coursId)}
+                  />
+                );
+              })}
+              {filteredParticipants.length === 0 && (
+                <p className="text-center text-slate-400 py-10 text-sm">Aucun participant trouvé.</p>
+              )}
+            </div>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function ParticipantDevoirRow({
+  participant,
+  coursId,
+  fichiers,
+  note,
+  isOpen,
+  onToggle,
+  onSaved,
+}: {
+  participant: Participant;
+  coursId: string;
+  fichiers: DevoirSoumission[];
+  note?: NoteCours;
+  isOpen: boolean;
+  onToggle: () => void;
+  onSaved: () => void;
+}) {
+  const [note1, setNote1] = useState(note?.note1?.toString() ?? "");
+  const [note2, setNote2] = useState(note?.note2?.toString() ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setNote1(note?.note1?.toString() ?? "");
+    setNote2(note?.note2?.toString() ?? "");
+  }, [note?.note1, note?.note2]);
+
+  const handleSave = async () => {
+    setError("");
+    const n1 = note1.trim() === "" ? null : Number(note1);
+    const n2 = note2.trim() === "" ? null : Number(note2);
+    if ((note1.trim() !== "" && Number.isNaN(n1)) || (note2.trim() !== "" && Number.isNaN(n2))) {
+      setError("Les notes doivent être des nombres.");
+      return;
+    }
+    setSaving(true);
+    const { error: err } = await supabase
+      .from("notes")
+      .upsert(
+        { participant_id: participant.id, cours_id: coursId, note1: n1, note2: n2, updated_at: new Date().toISOString() },
+        { onConflict: "participant_id,cours_id" }
+      );
+    setSaving(false);
+    if (err) setError(err.message);
+    else onSaved();
+  };
+
+  const moyenne = note1.trim() !== "" && note2.trim() !== "" && !Number.isNaN(Number(note1)) && !Number.isNaN(Number(note2))
+    ? ((Number(note1) + Number(note2)) / 2).toFixed(2)
+    : null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-slate-50 transition"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs flex-shrink-0">
+            {participant.prenoms?.[0]}{participant.nom?.[0]}
+          </div>
+          <div className="min-w-0 text-left">
+            <p className="font-semibold text-sm truncate">{participant.prenoms} {participant.nom}</p>
+            <p className="text-xs text-slate-400">
+              {fichiers.length === 0 ? "Aucun fichier soumis" : `${fichiers.length} fichier${fichiers.length > 1 ? "s" : ""} soumis`}
+              {moyenne !== null && ` · Moyenne : ${moyenne}`}
+            </p>
+          </div>
+        </div>
+        <span className={`text-slate-400 transition-transform flex-shrink-0 ${isOpen ? "rotate-180" : ""}`}>{Icons.chevronDown}</span>
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-slate-100 px-4 py-4 space-y-4 bg-slate-50/50">
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Fichiers soumis</p>
+            {fichiers.length === 0 ? (
+              <p className="text-sm text-slate-400">Ce participant n'a pas encore soumis de fichier pour ce cours.</p>
+            ) : (
+              <div className="space-y-2">
+                {fichiers.map((f) => (
+                  <a
+                    key={f.id}
+                    href={f.fichier_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 bg-white rounded-lg border border-slate-200 px-3 py-2.5 text-sm hover:border-indigo-300 transition"
+                  >
+                    <span className="text-slate-400 flex-shrink-0">{Icons.fileText}</span>
+                    <span className="truncate flex-1 font-medium">{f.fichier_nom}</span>
+                    <span className="text-xs text-slate-400 flex-shrink-0">
+                      {new Date(f.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Notes</p>
+            {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Note 1</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={note1}
+                  onChange={(e) => setNote1(e.target.value)}
+                  placeholder="—"
+                  className="w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Note 2</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={note2}
+                  onChange={(e) => setNote2(e.target.value)}
+                  placeholder="—"
+                  className="w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                />
+              </div>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-4 py-2 text-sm font-semibold hover:brightness-110 transition active:scale-95 disabled:opacity-60"
+              >
+                {saving ? "..." : "Enregistrer les notes"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

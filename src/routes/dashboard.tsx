@@ -179,7 +179,25 @@ interface Enregistrement {
   professeur?: Professeur;
 }
 
-type DashboardTab = "calendrier" | "cours" | "messagerie" | "parametres";
+interface DevoirSoumission {
+  id: string;
+  participant_id: string;
+  cours_id: string;
+  fichier_nom: string;
+  fichier_url: string;
+  created_at: string;
+  cours?: Cours;
+}
+
+interface NoteCours {
+  id: string;
+  participant_id: string;
+  cours_id: string;
+  note1: number | null;
+  note2: number | null;
+}
+
+type DashboardTab = "calendrier" | "cours" | "devoirs" | "messagerie" | "parametres";
 
 // Formate une date en "YYYY-MM-DD" en utilisant les composants LOCAUX
 // (jamais toISOString(), qui convertit en UTC et peut décaler la date
@@ -253,6 +271,54 @@ function IconUser({ className = "w-6 h-6" }: { className?: string }) {
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function IconClipboard({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    </svg>
+  );
+}
+
+function IconUpload({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function IconFileText({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  );
+}
+
+function IconTrophy({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z" />
+      <path d="M17 5h3a2 2 0 0 1-2 4h-1M7 5H4a2 2 0 0 0 2 4h1" />
+    </svg>
+  );
+}
+
+function IconTrashSmall({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
   );
 }
@@ -2456,6 +2522,305 @@ function MessagerieTab({ user, onExit }: { user: User; onExit: () => void }) {
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   DEVOIRS — soumission de fichiers + consultation des notes
+   ───────────────────────────────────────────────────────── */
+function DevoirsTab({ user }: { user: User }) {
+  const [view, setView] = useState<"soumettre" | "notes">("soumettre");
+  const [cours, setCours] = useState<Cours[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [soumissions, setSoumissions] = useState<DevoirSoumission[]>([]);
+  const [notes, setNotes] = useState<NoteCours[]>([]);
+
+  const fetchCours = async () => {
+    const { data, error } = await supabase.from("cours").select("*").order("titre", { ascending: true });
+    if (!error) setCours(data || []);
+  };
+
+  const fetchSoumissions = async () => {
+    const { data, error } = await supabase
+      .from("devoir_soumissions")
+      .select("*, cours:cours_id(*)")
+      .eq("participant_id", user.id)
+      .order("created_at", { ascending: false });
+    if (!error) setSoumissions(data || []);
+  };
+
+  const fetchNotes = async () => {
+    const { data, error } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("participant_id", user.id);
+    if (!error) setNotes(data || []);
+  };
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      await Promise.all([fetchCours(), fetchSoumissions(), fetchNotes()]);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) {
+    return <div className="text-center py-20 text-muted-foreground text-sm">Chargement...</div>;
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Segmented control */}
+      <div className="inline-flex bg-muted/60 rounded-full p-1 gap-1">
+        <button
+          onClick={() => setView("soumettre")}
+          className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+            view === "soumettre" ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Soumettre un devoir
+        </button>
+        <button
+          onClick={() => setView("notes")}
+          className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+            view === "notes" ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Mes notes &amp; résultats
+        </button>
+      </div>
+
+      {view === "soumettre" ? (
+        <SoumettreDevoirPanel
+          user={user}
+          cours={cours}
+          soumissions={soumissions}
+          onRefresh={fetchSoumissions}
+        />
+      ) : (
+        <NotesResultatsPanel cours={cours} notes={notes} />
+      )}
+    </div>
+  );
+}
+
+function SoumettreDevoirPanel({
+  user,
+  cours,
+  soumissions,
+  onRefresh,
+}: {
+  user: User;
+  cours: Cours[];
+  soumissions: DevoirSoumission[];
+  onRefresh: () => void;
+}) {
+  const [coursId, setCoursId] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) {
+      setError("Le fichier doit faire moins de 20 Mo.");
+      return;
+    }
+    setError("");
+    setFile(f);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!coursId) {
+      setError("Choisis le cours concerné.");
+      return;
+    }
+    if (!file) {
+      setError("Choisis le fichier à téléverser.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${coursId}/${user.id}/${Date.now()}_${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("devoirs")
+        .upload(path, file, { upsert: false, cacheControl: "3600" });
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from("devoirs").getPublicUrl(path);
+
+      const { error: insertError } = await supabase.from("devoir_soumissions").insert({
+        participant_id: user.id,
+        cours_id: coursId,
+        fichier_nom: file.name,
+        fichier_url: publicUrlData.publicUrl,
+      });
+      if (insertError) throw insertError;
+
+      setCoursId("");
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      onRefresh();
+    } catch (err: any) {
+      setError(err?.message || "Échec de l'envoi. Réessaie dans un instant.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Supprimer ce devoir soumis ?")) return;
+    const { error: err } = await supabase.from("devoir_soumissions").delete().eq("id", id);
+    if (!err) onRefresh();
+  };
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border p-5 shadow-soft space-y-4">
+        {error && (
+          <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3">{error}</div>
+        )}
+        <div>
+          <label className="text-sm font-semibold text-muted-foreground mb-1.5 block">Cours concerné *</label>
+          <select
+            value={coursId}
+            onChange={(e) => setCoursId(e.target.value)}
+            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/25"
+          >
+            <option value="">— Choisir un cours —</option>
+            {cours.map((c) => (
+              <option key={c.id} value={c.id}>{c.titre}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-semibold text-muted-foreground mb-1.5 block">Fichier du devoir *</label>
+          <label className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-4 text-sm cursor-pointer hover:bg-muted/50 transition">
+            <IconUpload className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            <span className="text-muted-foreground truncate">{file ? file.name : "Choisir un fichier (PDF, image, Word...)"}</span>
+            <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
+          </label>
+        </div>
+        <button
+          type="submit"
+          disabled={uploading}
+          className="w-full sm:w-auto rounded-xl bg-gradient-ocean text-primary-foreground px-5 py-3 font-semibold text-sm hover:brightness-110 transition active:scale-95 disabled:opacity-60"
+        >
+          {uploading ? "Envoi en cours..." : "Soumettre le devoir"}
+        </button>
+      </form>
+
+      <div>
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide mb-3">Mes devoirs soumis</h3>
+        {soumissions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun devoir soumis pour le moment.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {soumissions.map((s) => (
+              <div key={s.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                    <IconFileText className="w-[18px] h-[18px]" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{s.fichier_nom}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {s.cours?.titre || "Cours"} · {new Date(s.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <a
+                    href={s.fichier_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-semibold text-primary hover:underline px-2"
+                  >
+                    Voir
+                  </a>
+                  <button onClick={() => handleDelete(s.id)} className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-muted transition">
+                    <IconTrashSmall />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NotesResultatsPanel({ cours, notes }: { cours: Cours[]; notes: NoteCours[] }) {
+  const rows = useMemo(() => {
+    return cours.map((c) => {
+      const n = notes.find((nn) => nn.cours_id === c.id);
+      const note1 = n?.note1 ?? null;
+      const note2 = n?.note2 ?? null;
+      const moyenne = note1 !== null && note2 !== null ? (note1 + note2) / 2 : null;
+      return { cours: c, note1, note2, moyenne };
+    });
+  }, [cours, notes]);
+
+  const toutesNotesDisponibles = rows.length > 0 && rows.every((r) => r.note1 !== null && r.note2 !== null);
+  const resultatFinal = useMemo(() => {
+    if (!toutesNotesDisponibles) return null;
+    const somme = rows.reduce((acc, r) => acc + (r.moyenne ?? 0), 0);
+    return somme / rows.length;
+  }, [rows, toutesNotesDisponibles]);
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-muted/40 text-left text-xs font-bold text-muted-foreground uppercase tracking-wide">
+              <th className="px-4 py-3">Cours</th>
+              <th className="px-4 py-3 text-center">Note 1</th>
+              <th className="px-4 py-3 text-center">Note 2</th>
+              <th className="px-4 py-3 text-center">Moyenne</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.cours.id} className="border-t border-border">
+                <td className="px-4 py-3 font-semibold">{r.cours.titre}</td>
+                <td className="px-4 py-3 text-center text-muted-foreground">{r.note1 ?? "—"}</td>
+                <td className="px-4 py-3 text-center text-muted-foreground">{r.note2 ?? "—"}</td>
+                <td className="px-4 py-3 text-center font-bold">{r.moyenne !== null ? r.moyenne.toFixed(2) : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length === 0 && (
+          <p className="text-center text-sm text-muted-foreground py-10">Aucun cours pour le moment.</p>
+        )}
+      </div>
+
+      {toutesNotesDisponibles ? (
+        <div className="bg-gradient-ocean rounded-2xl p-6 text-primary-foreground shadow-lg flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+            <IconTrophy className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide opacity-80">Résultat final</p>
+            <p className="text-2xl font-extrabold">{resultatFinal!.toFixed(2)} / 20</p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          Ton résultat s'affichera ici une fois que toutes tes notes seront disponibles pour chaque cours.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("calendrier");
   const [user, setUser] = useState<User | null>(null);
@@ -2637,6 +3002,7 @@ function DashboardPage() {
   const tabs = [
     { key: "calendrier" as DashboardTab, icon: IconCalendar, label: "Calendrier", badge: stats.cetteSemaine > 0 ? stats.cetteSemaine : undefined },
     { key: "cours" as DashboardTab, icon: IconBook, label: "Cours", badge: !coursSeen && enregistrements.length > 0 ? enregistrements.length : undefined },
+    { key: "devoirs" as DashboardTab, icon: IconClipboard, label: "Devoirs" },
     { key: "messagerie" as DashboardTab, icon: IconMessage, label: "Messages", badge: unreadMessages > 0 ? unreadMessages : undefined },
     { key: "parametres" as DashboardTab, icon: IconSettings, label: "Paramètres" },
   ];
@@ -2722,6 +3088,7 @@ function DashboardPage() {
                 <span className="text-[10px] text-muted-foreground leading-tight">
                   {activeTab === "calendrier" && "Mon emploi du temps"}
                   {activeTab === "cours" && "Mes cours"}
+                  {activeTab === "devoirs" && "Devoirs"}
                   {activeTab === "parametres" && "Paramètres"}
                 </span>
               </div>
@@ -2753,6 +3120,7 @@ function DashboardPage() {
         <div className="px-4 py-5 lg:px-8 lg:py-6 max-w-5xl">
           {activeTab === "calendrier" && <CalendrierTab sessions={sessions} user={user} />}
           {activeTab === "cours" && <CoursTab enregistrements={enregistrements} />}
+          {activeTab === "devoirs" && <DevoirsTab user={user} />}
           {activeTab === "messagerie" && <MessagerieTab user={user} onExit={() => setActiveTab("calendrier")} />}
           {activeTab === "parametres" && <ParametresTab user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />}
         </div>

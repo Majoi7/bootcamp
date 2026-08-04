@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SkillsVisitorRouteImport } from './routes/skillsVisitor'
+import { Route as SkillsAdminRouteImport } from './routes/skillsAdmin'
 import { Route as ProfRouteImport } from './routes/prof'
 import { Route as PresentationRouteImport } from './routes/presentation'
 import { Route as PaiementRouteImport } from './routes/paiement'
@@ -20,6 +22,16 @@ import { Route as AvisRouteImport } from './routes/avis'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SkillsVisitorRoute = SkillsVisitorRouteImport.update({
+  id: '/skillsVisitor',
+  path: '/skillsVisitor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SkillsAdminRoute = SkillsAdminRouteImport.update({
+  id: '/skillsAdmin',
+  path: '/skillsAdmin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfRoute = ProfRouteImport.update({
   id: '/prof',
   path: '/prof',
@@ -82,6 +94,8 @@ export interface FileRoutesByFullPath {
   '/paiement': typeof PaiementRoute
   '/presentation': typeof PresentationRoute
   '/prof': typeof ProfRoute
+  '/skillsAdmin': typeof SkillsAdminRoute
+  '/skillsVisitor': typeof SkillsVisitorRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +108,8 @@ export interface FileRoutesByTo {
   '/paiement': typeof PaiementRoute
   '/presentation': typeof PresentationRoute
   '/prof': typeof ProfRoute
+  '/skillsAdmin': typeof SkillsAdminRoute
+  '/skillsVisitor': typeof SkillsVisitorRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +123,8 @@ export interface FileRoutesById {
   '/paiement': typeof PaiementRoute
   '/presentation': typeof PresentationRoute
   '/prof': typeof ProfRoute
+  '/skillsAdmin': typeof SkillsAdminRoute
+  '/skillsVisitor': typeof SkillsVisitorRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +139,8 @@ export interface FileRouteTypes {
     | '/paiement'
     | '/presentation'
     | '/prof'
+    | '/skillsAdmin'
+    | '/skillsVisitor'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +153,8 @@ export interface FileRouteTypes {
     | '/paiement'
     | '/presentation'
     | '/prof'
+    | '/skillsAdmin'
+    | '/skillsVisitor'
   id:
     | '__root__'
     | '/'
@@ -145,6 +167,8 @@ export interface FileRouteTypes {
     | '/paiement'
     | '/presentation'
     | '/prof'
+    | '/skillsAdmin'
+    | '/skillsVisitor'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,10 +182,26 @@ export interface RootRouteChildren {
   PaiementRoute: typeof PaiementRoute
   PresentationRoute: typeof PresentationRoute
   ProfRoute: typeof ProfRoute
+  SkillsAdminRoute: typeof SkillsAdminRoute
+  SkillsVisitorRoute: typeof SkillsVisitorRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/skillsVisitor': {
+      id: '/skillsVisitor'
+      path: '/skillsVisitor'
+      fullPath: '/skillsVisitor'
+      preLoaderRoute: typeof SkillsVisitorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/skillsAdmin': {
+      id: '/skillsAdmin'
+      path: '/skillsAdmin'
+      fullPath: '/skillsAdmin'
+      preLoaderRoute: typeof SkillsAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/prof': {
       id: '/prof'
       path: '/prof'
@@ -246,6 +286,8 @@ const rootRouteChildren: RootRouteChildren = {
   PaiementRoute: PaiementRoute,
   PresentationRoute: PresentationRoute,
   ProfRoute: ProfRoute,
+  SkillsAdminRoute: SkillsAdminRoute,
+  SkillsVisitorRoute: SkillsVisitorRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
